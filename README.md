@@ -129,9 +129,7 @@ $$
 $$
 
 $$
-m_i\dot{\mathbf{v}}_i
-=
-\mathbf{F}_i^W + m_i\mathbf{g} + \mathbf{d}_i
+m_i\dot{\mathbf{v}}_i = \mathbf{F}_i^W + m_i\mathbf{g} + \mathbf{d}_i
 $$
 
 where:
@@ -149,12 +147,8 @@ where:
 
 The desired acceleration is obtained using a PD controller:
 
-$$
-\mathbf{a}_d
-=
-K_p(\mathbf{p}_d-\mathbf{p})
-+
-K_d(\mathbf{v}_d-\mathbf{v})
+$$ 
+\mathbf{a}_d = K_p(\mathbf{p}_d-\mathbf{p}) + K_d(\mathbf{v}_d-\mathbf{v})
 $$
 
 $K_p$ — Proportional gain: Determines how strongly the UAV responds to the position error.
@@ -190,11 +184,7 @@ where:
 The attitude controller generates the desired torque:
 
 $$
-\boldsymbol{\tau}
-=
-K_q\mathbf{e}_q
--
-K_\omega\boldsymbol{\omega}
+\boldsymbol{\tau} = K_q\mathbf{e}_q - K_\omega\boldsymbol{\omega} 
 $$
 
 - $\boldsymbol{\tau}$: desired control torque
@@ -234,14 +224,7 @@ where:
 These control inputs are converted into individual motor commands using a motor-mixing matrix:
 
 $$
-\begin{bmatrix}
-\omega_1\\
-\omega_2\\
-\omega_3\\
-\omega_4
-\end{bmatrix}
-=
-M
+\begin{bmatrix} \omega_1\\ \omega_2\\ \omega_3\\ \omega_4 \end{bmatrix} = M 
 \begin{bmatrix}
 T\\
 \tau_x\\
@@ -370,7 +353,7 @@ The communication delay is normalized to the range $[0,1]$, where a lower delay 
 Mission progress represents how much of the assigned mission has been completed by UAV $i$. It can be calculated using the completed mission distance relative to the total mission distance:
 
 $$
-M_i=
+M_i =
 \frac{d_{\text{completed},i}}
 {d_{\text{mission}}}
 $$
