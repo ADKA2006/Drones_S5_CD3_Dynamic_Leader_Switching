@@ -66,7 +66,7 @@ The paper demonstrates through simulations that the proposed approach can autono
 
 However, the approach is designed for general multirobot systems and its leader-selection decision is primarily based on the affection/status model rather than an explicit, physically interpretable multi-criteria UAV health assessment. Furthermore, the paper assumes unrestricted communication and identifies limited communication and switching topology as future research challenges.
 
-Our project extends this concept to dual-UAV cooperative navigation by replacing the affection-based selection mechanism with a measurable leadership score based on battery level, GPS confidence, communication quality, obstacle visibility, mission progress, and wind stability.
+Our project extends this concept to dual-UAV cooperative navigation by replacing the affection-based selection mechanism with a measurable leadership score based on battery level, GPS confidence, communication quality, obstacle visibility and mission progress
 
 ## Problem Statement
 Conventional dual-UAV leader-follower systems use a fixed leader, creating a single point of failure when its battery, localization, communication, sensing, or stability deteriorates.
@@ -134,4 +134,168 @@ m_i\dot{\mathbf{v}}_i
 \mathbf{F}_i^W + m_i\mathbf{g} + \mathbf{d}_i
 $$
 
-where $\mathbf{d}_i$ represents external disturbances.
+where:
+
+- $\mathbf{p}_i$: position of UAV $i$
+- $\mathbf{v}_i$: velocity of UAV $i$
+- $m_i$: mass of UAV $i$
+- $\mathbf{F}_i^W$: total force acting on UAV $i$ in the world frame
+- $\mathbf{g}$: gravitational acceleration vector
+- $\mathbf{d}_i$: external disturbance acting on UAV $i$
+
+--- 
+
+### 3. Position Controller
+
+The desired acceleration is obtained using a PD controller:
+
+$$
+\mathbf{a}_d
+=
+K_p(\mathbf{p}_d-\mathbf{p})
++
+K_d(\mathbf{v}_d-\mathbf{v})
+$$
+
+$K_p$ — Proportional gain: Determines how strongly the UAV responds to the position error.
+Higher $K_p$ → UAV moves more aggressively toward the desired position.
+Too high → may cause overshoot or oscillation.
+
+$K_d$ — Derivative gain: Determines how strongly the UAV responds to the velocity error. It helps reduce overshoot and stabilize the motion.
+Higher $K_d$ → more damping/smoother response.
+Too high → response can become slow or sensitive to noise.
+
+---
+
+### 4. Quaternion Attitude Control
+
+UAV orientation is represented using a unit quaternion:
+
+$$
+q=[q_0,q_1,q_2,q_3]
+$$
+
+The desired UAV orientation is represented by the desired quaternion $q_d$.\
+The quaternion tracking error between the desired and current orientations is calculated as:
+
+$$
+q_e=q_d\otimes q^{-1}
+$$
+
+where:
+
+- $q_e$: quaternion attitude error
+- $q_d$: desired attitude quaternion
+
+The attitude controller generates the desired torque:
+
+$$
+\boldsymbol{\tau}
+=
+K_q\mathbf{e}_q
+-
+K_\omega\boldsymbol{\omega}
+$$
+
+- $\boldsymbol{\tau}$: desired control torque
+- $K_q$: attitude-error proportional gain
+- $\mathbf{e}_q$: vector part of the quaternion attitude error
+- $K_\omega$: angular-velocity damping gain
+- $\boldsymbol{\omega}$: current angular velocity
+
+where 
+$K_q\mathbf{e}_q$
+generates a corrective torque that drives the UAV toward the desired orientation and\
+$-K_\omega\boldsymbol{\omega}$ provides damping and reduces excessive rotational motion.
+
+---
+
+### 5. Motor Mixing
+
+The position and attitude controllers generate the required total thrust and body torques:
+
+$$
+\mathbf{u}=
+\begin{bmatrix}
+T\\
+\tau_x\\
+\tau_y\\
+\tau_z
+\end{bmatrix}
+$$
+
+where:
+
+- $T$: total thrust
+- $\tau_x$: roll torque
+- $\tau_y$: pitch torque
+- $\tau_z$: yaw torque
+
+These control inputs are converted into individual motor commands using a motor-mixing matrix:
+
+$$
+\begin{bmatrix}
+\omega_1\\
+\omega_2\\
+\omega_3\\
+\omega_4
+\end{bmatrix}
+=
+M
+\begin{bmatrix}
+T\\
+\tau_x\\
+\tau_y\\
+\tau_z
+\end{bmatrix}
+$$
+
+where:
+
+- $\omega_1,\omega_2,\omega_3,\omega_4$: commanded angular speeds of the four motors
+- $M$: motor-mixing matrix determined by the quadrotor configuration and motor arrangement
+
+The motor mixer distributes the required thrust and torques among the four motors. Differences in motor speeds generate the required **roll, pitch, and yaw torques**, while the combined motor thrust controls the UAV's vertical motion.
+
+---
+## To be Implemented 
+---
+
+### 6. UAV Health Vector
+
+For each UAV $i$, the operational health vector is defined as:
+
+$$
+\mathbf{h}_i=
+[B_i,C_i,M_i]^T
+$$
+
+where:
+
+| Symbol | Parameter |
+|---|---|
+| $B_i$ | Battery health |
+| $C_i$ | Communication quality |
+| $M_i$ | Mission progress |
+
+These parameters are selected based on information available within the UAV simulation and control system, without requiring additional external environmental sensors.
+
+All parameters are normalized to the range:
+
+$$
+0\leq h_{ik}\leq1
+$$
+
+where $h_{ik}$ represents the normalized value of the $k$-th health parameter for UAV $i$. A higher value indicates better suitability for performing the leader role.
+
+## Expected Results
+
+- Stable UAV attitude control using a Python-based quaternion controller.
+- Adaptive leader selection based on battery, position accuracy, communication, and mission progress.
+- Reduced unnecessary leader switching using hysteresis and minimum dwell time.
+- Continuous dual-UAV formation during leader transitions.
+- Improved mission reliability compared with a fixed-leader system.
+
+## Conclusion
+
+The proposed system enables two UAVs to dynamically switch leadership based on their operating conditions. By combining adaptive leadership scoring, hysteresis, and minimum dwell time, the system is expected to provide stable leader selection and continuous cooperative navigation. The approach will be validated through Webots simulation under different UAV operating conditions.
