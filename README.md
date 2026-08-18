@@ -58,6 +58,16 @@ To prevent unnecessary switching caused by measurement fluctuations, the framewo
 - Publisher: IEEE
 - Authors: Feng Li, Yongsheng Ding, MengChu Zhou, Lei Chen
 
+## Base Paper Discussion
+
+The paper proposes a dynamic leader-selection mechanism to overcome the limitations of fixed leader–follower formation control. The system uses a Fuzzy Inference System (FIS) to evaluate the status of individual robots and an affection-based model to determine when the current leader should be replaced. Followers generate unsatisfied signals based on their perception of the leader, and leader reselection is triggered when the accumulated dissatisfaction exceeds a predefined threshold. A swap-greedy algorithm is then used to establish the new leader–follower relationships while reducing overall travel distance.
+
+The paper demonstrates through simulations that the proposed approach can autonomously recover from leader failures and continue mission execution. It also shows that delaying leader switching helps prevent excessive switching and instability.
+
+However, the approach is designed for general multirobot systems and its leader-selection decision is primarily based on the affection/status model rather than an explicit, physically interpretable multi-criteria UAV health assessment. Furthermore, the paper assumes unrestricted communication and identifies limited communication and switching topology as future research challenges.
+
+Our project extends this concept to dual-UAV cooperative navigation by replacing the affection-based selection mechanism with a measurable leadership score based on battery level, GPS confidence, communication quality, obstacle visibility, mission progress, and wind stability.
+
 ## Problem Statement
 Conventional dual-UAV leader-follower systems use a fixed leader, creating a single point of failure when its battery, localization, communication, sensing, or stability deteriorates.
 A dynamic mechanism is required to evaluate both UAVs using multiple operational criteria and identify the most suitable leader during the mission.
@@ -72,6 +82,13 @@ The system must switch leadership reliably without unnecessary chattering while 
 | 3   | Stable leader switching                | Introduces hysteresis and minimum dwell time to prevent unnecessary leader switching and chattering.                                                                                  |
 | 4   | UAV-specific cooperative navigation    | Integrates dynamic leader switching with quaternion attitude control, position control, quadrotor dynamics, and Webots simulation while maintaining formation and mission continuity. |
 
+## Project Objectives
+
+1. To Develop a drone controlling python script which controls the attitude of the Drone.
+2. Formulate an adaptive leadership score using battery level, position accuracy, communication status, and mission progress.
+3. Design a hysteresis-based dynamic leader-selection mechanism with a minimum dwell time.
+4. Integrate dynamic leader switching with dual-UAV leader-follower cooperative navigation.
+
 ## Brief Project Explanation
 
 This project proposes an adaptive dynamic leader-switching system for two UAVs in cooperative navigation. Unlike a conventional fixed leader-follower system, the proposed method continuously evaluates the UAVs using information already available from the simulation and flight-control system, such as battery level, GPS/position accuracy, communication status, and mission progress.
@@ -82,3 +99,25 @@ After switching, the new leader continues following the mission trajectory, whil
 
 ## Methodology
 
+### 1. UAV State
+
+For UAV \(i\):
+
+\[
+\mathbf{x}_i =
+\begin{bmatrix}
+\mathbf{p}_i\\
+\mathbf{v}_i\\
+\mathbf{q}_i\\
+\boldsymbol{\omega}_i
+\end{bmatrix}
+\]
+
+where:
+
+- \(\mathbf{p}_i\): position
+- \(\mathbf{v}_i\): velocity
+- \(\mathbf{q}_i\): attitude quaternion
+- \(\boldsymbol{\omega}_i\): angular velocity
+
+---
