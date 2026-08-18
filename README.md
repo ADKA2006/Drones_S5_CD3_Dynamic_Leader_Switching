@@ -101,9 +101,9 @@ After switching, the new leader continues following the mission trajectory, whil
 
 ### 1. UAV State
 
-For UAV \(i\):
+For UAV $i$:
 
-\[
+$$
 \mathbf{x}_i =
 \begin{bmatrix}
 \mathbf{p}_i\\
@@ -111,13 +111,11 @@ For UAV \(i\):
 \mathbf{q}_i\\
 \boldsymbol{\omega}_i
 \end{bmatrix}
-\]
+$$
 
 where:
 
-- \(\mathbf{p}_i\): position
-- \(\mathbf{v}_i\): velocity
-- \(\mathbf{q}_i\): attitude quaternion
-- \(\boldsymbol{\omega}_i\): angular velocity
-
----
+- $\mathbf{p}_i$: position
+- $\mathbf{v}_i$: velocity
+- $\mathbf{q}_i$: attitude quaternion
+- $\boldsymbol{\omega}_i$: angular velocity
