@@ -290,7 +290,7 @@ To account for the minimum safe operating battery level, the battery health scor
 
 $$
 B_i=
-\operatorname{clip}
+clip
 \left(
 \frac{b_i-B_{\min}}
 {1-B_{\min}},0,1
@@ -301,7 +301,7 @@ where:
 
 - $B_{\min}$: minimum safe normalized battery level
 - $B_i$: normalized battery health score
-- $\operatorname{clip}(x,0,1)$: limits the value of $x$ to the range $[0,1]$
+- $clip(x,0,1)$: limits the value of $x$ to the range $[0,1]$
 
 A higher $B_i$ indicates better battery suitability for the leader role. When the battery level approaches the minimum safe threshold, $B_i$ approaches zero, reducing the UAV's likelihood of being selected as the leader.
 
@@ -480,9 +480,7 @@ This hysteresis-based switching mechanism prevents **leader chattering**, avoids
 The active leader follows the predefined mission trajectory:
 
 $$
-\mathbf{p}_L^d(t)
-=
-\mathbf{p}_{mission}(t)
+\mathbf{p}_L^d(t) = \mathbf{p}_{mission}(t)
 $$
 
 where:
@@ -493,10 +491,7 @@ where:
 The follower maintains a predefined relative position with respect to the leader:
 
 $$
-\mathbf{p}_F^d
-=
-\mathbf{p}_L+
-R(\psi_L)\mathbf{r}_{LF}
+\mathbf{p}_F^d = \mathbf{p}_L+ R(\psi_L)\mathbf{r}_{LF}
 $$
 
 where:
@@ -510,11 +505,7 @@ where:
 The follower's desired acceleration is calculated using the same PD position controller:
 
 $$
-\mathbf{a}_F^d
-=
-K_p(\mathbf{p}_F^d-\mathbf{p}_F)
-+
-K_d(\mathbf{v}_F^d-\mathbf{v}_F)
+\mathbf{a}_F^d = K_p(\mathbf{p}_F^d-\mathbf{p}_F) + K_d(\mathbf{v}_F^d-\mathbf{v}_F)
 $$
 
 where:
