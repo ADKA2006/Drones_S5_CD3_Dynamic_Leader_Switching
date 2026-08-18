@@ -119,3 +119,19 @@ where:
 - $\mathbf{v}_i$: velocity
 - $\mathbf{q}_i$: attitude quaternion
 - $\boldsymbol{\omega}_i$: angular velocity
+
+---
+
+### 2. Position Dynamics
+
+$$
+\dot{\mathbf{p}}_i = \mathbf{v}_i
+$$
+
+$$
+m_i\dot{\mathbf{v}}_i
+=
+\mathbf{F}_i^W + m_i\mathbf{g} + \mathbf{d}_i
+$$
+
+where $\mathbf{d}_i$ represents external disturbances.
