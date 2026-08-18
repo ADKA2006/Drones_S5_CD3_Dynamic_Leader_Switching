@@ -66,7 +66,7 @@ The paper demonstrates through simulations that the proposed approach can autono
 
 However, the approach is designed for general multirobot systems and its leader-selection decision is primarily based on the affection/status model rather than an explicit, physically interpretable multi-criteria UAV health assessment. Furthermore, the paper assumes unrestricted communication and identifies limited communication and switching topology as future research challenges.
 
-Our project extends this concept to dual-UAV cooperative navigation by replacing the affection-based selection mechanism with a measurable leadership score based on battery level, GPS confidence, communication quality, obstacle visibility and mission progress
+Our project extends this concept to dual-UAV cooperative navigation by replacing the affection-based selection mechanism with a measurable leadership score based on battery level, GPS confidence, communication quality, obstacle visibility, mission progress, and wind stability.
 
 ## Problem Statement
 Conventional dual-UAV leader-follower systems use a fixed leader, creating a single point of failure when its battery, localization, communication, sensing, or stability deteriorates.
@@ -129,7 +129,9 @@ $$
 $$
 
 $$
-m_i\dot{\mathbf{v}}_i = \mathbf{F}_i^W + m_i\mathbf{g} + \mathbf{d}_i
+m_i\dot{\mathbf{v}}_i
+=
+\mathbf{F}_i^W + m_i\mathbf{g} + \mathbf{d}_i
 $$
 
 where:
@@ -148,7 +150,11 @@ where:
 The desired acceleration is obtained using a PD controller:
 
 $$
-\mathbf{a}_d = K_p(\mathbf{p}_d-\mathbf{p}) + K_d(\mathbf{v}_d-\mathbf{v})
+\mathbf{a}_d
+=
+K_p(\mathbf{p}_d-\mathbf{p})
++
+K_d(\mathbf{v}_d-\mathbf{v})
 $$
 
 $K_p$ — Proportional gain: Determines how strongly the UAV responds to the position error.
@@ -184,7 +190,11 @@ where:
 The attitude controller generates the desired torque:
 
 $$
-\boldsymbol{\tau} = K_q\mathbf{e}_q - K_\omega\boldsymbol{\omega}
+\boldsymbol{\tau}
+=
+K_q\mathbf{e}_q
+-
+K_\omega\boldsymbol{\omega}
 $$
 
 - $\boldsymbol{\tau}$: desired control torque
@@ -224,7 +234,20 @@ where:
 These control inputs are converted into individual motor commands using a motor-mixing matrix:
 
 $$
-\begin{bmatrix} \omega_1\\ \omega_2\\ \omega_3\\ \omega_4 \end{bmatrix} = M \begin{bmatrix} T\\ \tau_x\\ \tau_y\\ \tau_z \end{bmatrix}
+\begin{bmatrix}
+\omega_1\\
+\omega_2\\
+\omega_3\\
+\omega_4
+\end{bmatrix}
+=
+M
+\begin{bmatrix}
+T\\
+\tau_x\\
+\tau_y\\
+\tau_z
+\end{bmatrix}
 $$
 
 where:
@@ -264,6 +287,288 @@ $$
 $$
 
 where $h_{ik}$ represents the normalized value of the $k$-th health parameter for UAV $i$. A higher value indicates better suitability for performing the leader role.
+
+---
+
+### 7. Battery Health
+
+The battery level of UAV $i$ is normalized with respect to its maximum available energy:
+
+$$
+b_i=\frac{E_i}{E_{\max}}
+$$
+
+where:
+
+- $E_i$: current battery energy of UAV $i$
+- $E_{\max}$: maximum battery energy
+
+To account for the minimum safe operating battery level, the battery health score is defined as:
+
+$$
+B_i=
+\operatorname{clip}
+\left(
+\frac{b_i-B_{\min}}
+{1-B_{\min}},0,1
+\right)
+$$
+
+where:
+
+- $B_{\min}$: minimum safe normalized battery level
+- $B_i$: normalized battery health score
+- $\operatorname{clip}(x,0,1)$: limits the value of $x$ to the range $[0,1]$
+
+A higher $B_i$ indicates better battery suitability for the leader role. When the battery level approaches the minimum safe threshold, $B_i$ approaches zero, reducing the UAV's likelihood of being selected as the leader.
+
+---
+
+### 8. Communication Quality
+
+Communication quality is evaluated using the communication information already available between the two UAVs. The quality score can combine packet delivery ratio and communication delay:
+
+$$
+C_i=
+\alpha PDR_i+
+\beta(1-D_i)
+$$
+
+where:
+
+- $C_i$: communication quality score of UAV $i$
+- $PDR_i$: packet delivery ratio
+- $D_i$: normalized communication delay
+- $\alpha$: weight assigned to packet delivery
+- $\beta$: weight assigned to communication delay
+
+The weights satisfy:
+
+$$
+\alpha+\beta=1
+$$
+
+The packet delivery ratio is calculated as:
+
+$$
+PDR_i=
+\frac{N_{\text{received}}}
+{N_{\text{sent}}}
+$$
+
+where:
+
+- $N_{\text{received}}$: number of successfully received packets
+- $N_{\text{sent}}$: total number of transmitted packets
+
+The communication delay is normalized to the range $[0,1]$, where a lower delay produces a higher communication-quality contribution. Therefore, a higher $C_i$ indicates a more reliable communication link and greater suitability for the leader role.
+
+---
+
+### 9. Mission Progress
+
+Mission progress represents how much of the assigned mission has been completed by UAV $i$. It can be calculated using the completed mission distance relative to the total mission distance:
+
+$$
+M_i=
+\frac{d_{\text{completed},i}}
+{d_{\text{mission}}}
+$$
+
+where:
+
+- $M_i$: normalized mission progress of UAV $i$
+- $d_{\text{completed},i}$: distance covered by UAV $i$ along the mission
+- $d_{\text{mission}}$: total mission distance
+
+The value of $M_i$ is limited to the range:
+
+$$
+0\leq M_i\leq1
+$$
+
+A higher $M_i$ indicates that the UAV has made greater progress along the mission and may be more suitable to continue as the leader. Since both UAVs operate within the same mission, this parameter can be used together with battery, GPS confidence, and communication quality to determine the overall leadership score.
+
+---
+
+### Leadership Score
+
+The overall leadership score for UAV $i$ is calculated as a weighted combination of its battery health, communication quality, and mission progress:
+
+$$
+\boxed{
+S_i=
+w_BB_i+
+w_CC_i+
+w_MM_i
+}
+$$
+
+where:
+
+- $S_i$: overall leadership score of UAV $i$
+- $B_i$: battery health
+- $C_i$: communication quality
+- $M_i$: mission progress
+- $w_B$: weight assigned to battery health
+- $w_C$: weight assigned to communication quality
+- $w_M$: weight assigned to mission progress
+
+The weights satisfy:
+
+$$
+w_B+w_C+w_M=1
+$$
+
+and each parameter is normalized to:
+
+$$
+0\leq B_i,C_i,M_i\leq1
+$$
+
+Therefore, the resulting leadership score satisfies:
+
+$$
+0\leq S_i\leq1
+$$
+
+A higher $S_i$ indicates that the UAV is more suitable to perform the leader role. The UAV with the highest suitable leadership score is selected as the preferred leader, subject to the dynamic switching conditions defined in the following section.
+
+---
+
+### Dynamic Leader Switching
+
+A simple instantaneous leader-selection rule is:
+
+$$
+L=\arg\max_i S_i
+$$
+
+where $L$ represents the selected leader and $S_i$ is the leadership score of UAV $i$.
+
+However, selecting the leader solely based on the instantaneous highest score may cause frequent switching when the scores fluctuate due to small changes in battery, communication quality, or mission progress.
+
+To prevent unnecessary switching, a **hysteresis condition** is introduced.
+
+If UAV $L$ is the current leader and UAV $j$ is the candidate leader, switching is allowed only when the candidate has a sufficiently higher leadership score:
+
+$$
+\boxed{
+S_j>S_L+\Delta_S
+}
+$$
+
+where:
+
+- $S_j$: leadership score of the candidate UAV
+- $S_L$: leadership score of the current leader
+- $\Delta_S$: minimum score difference required to trigger a leader switch
+
+A **minimum dwell time** is also imposed so that the current leader remains active for a minimum period before another switch can occur:
+
+$$
+t-t_{\text{switch}}>T_{\min}
+$$
+
+where:
+
+- $t$: current simulation time
+- $t_{\text{switch}}$: time at which the previous leader switch occurred
+- $T_{\min}$: minimum required dwell time between consecutive leader switches
+
+Therefore, a leadership transition occurs only when both conditions are satisfied:
+
+$$
+\boxed{
+S_j>S_L+\Delta_S
+\quad\land\quad
+t-t_{\text{switch}}>T_{\min}
+}
+$$
+
+When the conditions are satisfied, UAV $j$ becomes the new leader and the previous leader $L$ becomes the follower.
+
+This hysteresis-based switching mechanism prevents **leader chattering**, avoids unnecessary role changes, and provides more stable cooperative navigation.
+
+---
+
+### Leader-Follower Navigation
+
+The active leader follows the predefined mission trajectory:
+
+$$
+\mathbf{p}_L^d(t)
+=
+\mathbf{p}_{mission}(t)
+$$
+
+where:
+
+- $\mathbf{p}_L^d(t)$: desired position of the leader
+- $\mathbf{p}_{mission}(t)$: desired mission trajectory
+
+The follower maintains a predefined relative position with respect to the leader:
+
+$$
+\mathbf{p}_F^d
+=
+\mathbf{p}_L+
+R(\psi_L)\mathbf{r}_{LF}
+$$
+
+where:
+
+- $\mathbf{p}_F^d$: desired position of the follower
+- $\mathbf{p}_L$: current position of the leader
+- $R(\psi_L)$: rotation matrix based on the leader's yaw angle
+- $\psi_L$: leader yaw angle
+- $\mathbf{r}_{LF}$: desired leader-to-follower formation offset
+
+The follower's desired acceleration is calculated using the same PD position controller:
+
+$$
+\mathbf{a}_F^d
+=
+K_p(\mathbf{p}_F^d-\mathbf{p}_F)
++
+K_d(\mathbf{v}_F^d-\mathbf{v}_F)
+$$
+
+where:
+
+- $\mathbf{p}_F$: current follower position
+- $\mathbf{v}_F^d$: desired follower velocity
+- $\mathbf{v}_F$: current follower velocity
+- $K_p$: proportional position gain
+- $K_d$: derivative velocity gain
+
+The resulting desired acceleration is passed to the existing low-level position and attitude control layers to generate the required motor commands.
+
+---
+
+# Seamless Leader Transition
+
+When a leadership switch occurs, the roles of the two UAVs are exchanged without changing the overall mission trajectory.
+
+```text
+Before Switching
+
+UAV 1 → Leader → Mission Trajectory
+UAV 2 → Follower → Formation Offset
+
+              ↓
+       UAV 1 Score Decreases
+              ↓
+       UAV 2 Score Becomes Higher
+              ↓
+       Switching Conditions Satisfied
+              ↓
+
+After Switching
+
+UAV 1 → Follower → Formation Offset
+UAV 2 → Leader → Same Mission Trajectory
+```
 
 ## Expected Results
 
