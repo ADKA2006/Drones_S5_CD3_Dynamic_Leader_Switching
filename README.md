@@ -58,6 +58,11 @@ To prevent unnecessary switching caused by measurement fluctuations, the framewo
 - Publisher: IEEE
 - Authors: Feng Li, Yongsheng Ding, MengChu Zhou, Lei Chen
 
+## Problem Statement
+Conventional dual-UAV leader-follower systems use a fixed leader, creating a single point of failure when its battery, localization, communication, sensing, or stability deteriorates.
+A dynamic mechanism is required to evaluate both UAVs using multiple operational criteria and identify the most suitable leader during the mission.
+The system must switch leadership reliably without unnecessary chattering while maintaining formation and mission continuity.
+
 ## Novelty
 
 | **No.** | **Novelty of Proposed Project**            | **Difference from Previous Paper**                                                                                                                                                        |
@@ -76,3 +81,4 @@ A leadership score is calculated for each UAV based on these parameters. When th
 After switching, the new leader continues following the mission trajectory, while the previous leader automatically becomes the follower and maintains the required formation relative to the new leader.
 
 ## Methodology
+
