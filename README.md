@@ -194,9 +194,8 @@ $$
 - $\boldsymbol{\omega}$: current angular velocity
 
 where 
-$K_q\mathbf{e}_q$
-generates a corrective torque that drives the UAV toward the desired orientation and\
-$-K_\omega\boldsymbol{\omega}$ provides damping and reduces excessive rotational motion.
+- $K_q\mathbf{e}_q$ generates a corrective torque that drives the UAV toward the desired orientation and
+- $-K_\omega\boldsymbol{\omega}$ provides damping and reduces excessive rotational motion.
 
 ---
 
