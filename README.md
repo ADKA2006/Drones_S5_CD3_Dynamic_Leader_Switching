@@ -181,6 +181,12 @@ where:
 - $q_e$: quaternion attitude error
 - $q_d$: desired attitude quaternion
 
+And Desired Thrust $T$
+
+$$
+\boldsymbol{\T} = \T_{hover} + K_{p}e_{z} - K_{d}v_{z}
+$$
+
 The attitude controller generates the desired torque:
 
 $$
