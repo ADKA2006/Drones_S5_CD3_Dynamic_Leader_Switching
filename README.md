@@ -148,7 +148,7 @@ where:
 The desired tilt (interpreted as acceleration) is obtained using a PD controller:
 
 $$ 
-\mathbf{a}_d = K_p(\mathbf{p}_d-\mathbf{p}) + K_d(\mathbf{v}_d-\mathbf{v})
+\mathbf{\theta}_d = K_p(\mathbf{p}_d-\mathbf{p}) + K_d(\mathbf{v}_d-\mathbf{v})
 $$
 
 $K_p$ — Proportional gain: Determines how strongly the UAV responds to the position error.
