@@ -1,16 +1,22 @@
-* [ ] Development of basic manual UAV control using keyboard inputs.
+### Drone Navigation
 
-* [ ] Implementation of basic UAV movements, including forward, backward, left, right, and altitude control.
+* [x] Development of basic manual UAV control using keyboard inputs.
+
+* [x] Implementation of basic UAV movements, including forward, backward, left, right, and altitude control.
 
 * [ ] Development of autonomous UAV movement between specified start and end points.
 
+### Obstacle Fed B-Spline Avoidance
+
 * [ ] Generation of a B-spline trajectory between the specified points for smooth autonomous navigation.
 
-* [ ] Implementation of obstacle detection in the MuJoCo simulation environment.
+* [ ] Implementation of obstacle avoidance in a simulation environment {Webots, Pybullet, Mujoco} .
 
-* [ ] Detection of obstacles along the planned trajectory and identification of required path changes.
+* [ ] Avoidance of obstacles along the planned trajectory and identification of required path changes.
 
-* [ ] Generation of a new B-spline trajectory for navigation around detected obstacles.
+* [ ] Generation of a new B-spline trajectory for navigation around fed in obstacles.
+
+### Dynamic Leader System
 
 * [ ] Extension of the single-UAV navigation system to two-UAV cooperative navigation.
 
