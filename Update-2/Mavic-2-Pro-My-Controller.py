@@ -30,9 +30,13 @@ def connect():
 @socket.on("BSpline")
 def BSpline_Function(data):
     global tempx, tempy, tempz
+    flag = True
     for i in data["CPts"]:
+        if flag:
+            flag = False
+            continue
         POINTS.append(manager.createObject(
-            position=i,
+            position=(i[0],i[1],i[2]),
             size=(0.1, 0.1, 0.1),
             color=(0, 0, 0)
         ))
@@ -111,7 +115,7 @@ temp = 0
 # desired_thrust = 70
 roll, pitch, yaw = None, None, None
 while robot.step(timestep) != -1:
-    if robot.getTime()>0.1:
+    if robot.getTime()>1:
         roll, pitch, yaw = imu.getRollPitchYaw()
         roll = np.rad2deg(roll)
         pitch = np.rad2deg(pitch)
@@ -307,17 +311,18 @@ while robot.step(timestep) != -1:
         x, y, z = gps.getValues()
         print("X: ", x, y, z)
         print(target_x, target_y, target_altitude)
-        error_thingy = 0.5
+        error_thingy = 1
         print("Len",len(tempx))
-        if len(tempx)!=0 and abs(x-tempx[index_for_socket])<error_thingy and abs(y-tempy[index_for_socket])<error_thingy and abs(z-tempz[index_for_socket])<error_thingy:
+        if True and len(tempx)!=0 or( abs(x-tempx[index_for_socket])<error_thingy and abs(y-tempy[index_for_socket])<error_thingy and abs(z-tempz[index_for_socket])<error_thingy):
             print("Inside IF")
             target_x = tempx[index_for_socket]
             target_y = tempy[index_for_socket]
-            target_altitude = tempz[index_for_socket]
+            target_altitude = tempz[index_for_socket]*2+2
             index_for_socket += 1
             if index_for_socket>=len(tempx):
                 for i in range(len(POINTS)):
                     manager.deleteObject(POINTS[i])
                 tempx = []
-        temp+=0.25
+            print(index_for_socket)
+        temp+=0.75
     pass
