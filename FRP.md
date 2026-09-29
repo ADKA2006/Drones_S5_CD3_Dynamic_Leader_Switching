@@ -10,11 +10,13 @@
 
 * [x] Generation of a B-spline trajectory between the specified points for smooth autonomous navigation.
 
-* [.] Implementation of obstacle avoidance in a simulation environment {Webots, Pybullet, Mujoco} .
+* [ ] Implementation of obstacle avoidance in a simulation environment {Webots, Pybullet, Mujoco} .
 
 * [ ] Avoidance of obstacles along the planned trajectory and identification of required path changes.
 
-* [ ] Generation of a new B-spline trajectory for navigation around fed in obstacles.
+* [x] Generation of a new B-spline trajectory for navigation around fed in obstacles.
+      
+* [x] Server feeds end points and obstacle info to drone and drone computes the trajectory in edge and moves accordingly
 
 ### Dynamic Leader System
 
