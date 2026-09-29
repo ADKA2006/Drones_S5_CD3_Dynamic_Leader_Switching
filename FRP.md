@@ -4,13 +4,13 @@
 
 * [x] Implementation of basic UAV movements, including forward, backward, left, right, and altitude control.
 
-* [ ] Development of autonomous UAV movement between specified start and end points.
+* [x] Development of autonomous UAV movement between specified start and end points.
 
 ### Obstacle Fed B-Spline Avoidance
 
-* [ ] Generation of a B-spline trajectory between the specified points for smooth autonomous navigation.
+* [x] Generation of a B-spline trajectory between the specified points for smooth autonomous navigation.
 
-* [ ] Implementation of obstacle avoidance in a simulation environment {Webots, Pybullet, Mujoco} .
+* [.] Implementation of obstacle avoidance in a simulation environment {Webots, Pybullet, Mujoco} .
 
 * [ ] Avoidance of obstacles along the planned trajectory and identification of required path changes.
 
