@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Webots Drone Control Center</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div><p class="eyebrow">WEBOTS · FLEET MONITOR</p><h1>Drone Control Center</h1><p class="subheading">Live connections, saved paths and on-demand telemetry plots.</p></div>
+    <div class="connection-pill"><span class="pulse"></span><span id="serverStatus">Connecting…</span></div>
+  </header>
+  <main>
+    <section class="summary-grid">
+      <article class="summary-card"><span>Total records</span><strong id="totalCount">0</strong></article>
+      <article class="summary-card"><span>Connected</span><strong id="connectedCount">0</strong></article>
+      <article class="summary-card"><span>Disconnected</span><strong id="disconnectedCount">0</strong></article>
+      <article class="summary-card"><span>Stored samples</span><strong id="sampleCount">—</strong></article>
+    </section>
+    <section class="panel">
+      <div class="section-heading"><div><p class="eyebrow">FLEET</p><h2>Drone nodes</h2></div><button id="refreshBtn" class="button secondary">Refresh list</button></div>
+      <p class="muted">Disconnected nodes remain here with their control points and history until you explicitly delete them.</p>
+      <div id="droneList" class="drone-list"><div class="empty-state">Waiting for drone connections…</div></div>
+    </section>
+    <section class="panel editor-panel">
+      <div class="section-heading"><div><p class="eyebrow">TRAJECTORY PLANNING</p><h2>Control points</h2></div><span id="selectedDroneLabel" class="selected-label">Select a drone</span></div>
+      <p class="muted">Enter one XYZ point per row. Saved inputs are stored on the server and restored after page refresh. A cubic B-spline (degree 3) needs at least four points.</p>
+      <div class="editor-toolbar"><label>Selected drone<select id="droneSelect"><option value="">Select a drone…</option></select></label><label class="degree-field">Degree<input id="degreeInput" type="number" min="1" max="8" value="3"></label></div>
+      <label for="controlPoints" class="field-label">Control points — X, Y, Z (metres)</label>
+      <textarea id="controlPoints" rows="7" spellcheck="false" placeholder="0, 0, 1.5&#10;0, 4, 2&#10;4, 4, 2&#10;4, 0, 2"></textarea>
+      <div class="editor-actions"><button id="savePointsBtn" class="button primary">Save &amp; send path</button><button id="restorePointsBtn" class="button secondary">Restore saved points</button></div>
+      <p id="editorMessage" class="inline-message" aria-live="polite"></p>
+    </section>
+    <section class="panel">
+      <div class="section-heading"><div><p class="eyebrow">DATA COLLECTION</p><h2>Live telemetry</h2></div><span class="live-tag">● Persisted in SQLite</span></div>
+      <p class="muted">The server stores incoming samples continuously. Plot images are only generated when you press a plot button.</p>
+      <div id="telemetryFeed" class="telemetry-feed"><div class="empty-state">No telemetry received yet.</div></div>
+    </section>
+    <section class="panel">
+      <div class="section-heading"><div><p class="eyebrow">ANALYSIS</p><h2>Generate plots</h2></div><span class="muted">PNG images saved in <code>static/generated_plots/</code></span></div>
+      <div class="plot-buttons">
+        <button class="button plot-button" data-plot="trajectory_3d">Actual 3D trajectory</button>
+        <button class="button plot-button" data-plot="coordinates_time">X / Y / Z vs time</button>
+        <button class="button plot-button" data-plot="tracking_error">Position tracking error</button>
+        <button class="button plot-button" data-plot="planned_actual_3d">Planned vs actual path</button>
+        <button class="button plot-button" data-plot="obstacle_clearance">Obstacle clearance</button>
+        <button class="button plot-button" data-plot="path_length">Original vs replanned length</button>
+        <button class="button plot-button" data-plot="uav_trajectories">UAV 1 / UAV 2 trajectories</button>
+        <button class="button plot-button" data-plot="leader_identity">Leader identity vs time</button>
+      </div>
+      <p id="plotMessage" class="inline-message" aria-live="polite"></p>
+      <div id="plotGallery" class="plot-gallery"><div class="empty-state">Generated plot images will appear here.</div></div>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+</body>
+</html>
