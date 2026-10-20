@@ -10,9 +10,9 @@
 
 * [x] Generation of a B-spline trajectory between the specified points for smooth autonomous navigation.
 
-* [ ] Implementation of obstacle avoidance in a simulation environment {Webots, Pybullet, Mujoco} .
+* [x] Implementation of obstacle avoidance in a simulation environment {Webots, Pybullet, Mujoco} .
 
-* [ ] Avoidance of obstacles along the planned trajectory and identification of required path changes.
+* [x] Avoidance of obstacles along the planned trajectory and identification of required path changes.
 
 * [x] Generation of a new B-spline trajectory for navigation around fed in obstacles.
       
@@ -20,7 +20,7 @@
 
 ### Dynamic Leader System
 
-* [ ] Extension of the single-UAV navigation system to two-UAV cooperative navigation.
+* [x] Extension of the single-UAV navigation system to two-UAV cooperative navigation.
 
 * [ ] Use of four predefined points as the mission path for evaluating the Dynamic Leader Switching approach.
 
