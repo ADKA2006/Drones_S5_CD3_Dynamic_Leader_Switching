@@ -101,59 +101,74 @@ After switching, the new leader continues following the mission trajectory, whil
 
 ### Part 1 — UAV State Estimation and B-Spline Trajectory Generation (3 Minutes)
 
-#### 1. UAV State Representation
+#### 1. UAV State Monitoring
 
-For UAV $i$, the state is represented as:
+The Webots controller obtains the UAV's position and orientation from the simulated sensors. Its state information can be represented as:
 
 $$
-\mathbf{x}_i =
+\mathbf{x}=
 \begin{bmatrix}
-\mathbf{p}_i\\
-\mathbf{v}_i\\
-\mathbf{q}_i\\
-\boldsymbol{\omega}_i
+\mathbf{p}\\
+\mathbf{v}\\
+\mathbf{q}\\
+\boldsymbol{\omega}
 \end{bmatrix}
 $$
 
 where:
 
-- $\mathbf{x}_i$: complete state of UAV $i$.
-- $\mathbf{p}_i=[x_i,y_i,z_i]^T$: 3D position.
-- $\mathbf{v}_i$: linear velocity.
-- $\mathbf{q}_i$: attitude quaternion representing orientation.
-- $\boldsymbol{\omega}_i$: angular velocity.
+- $\mathbf{x}$: UAV state representation.
+- $\mathbf{p}=[x,y,z]^T$: current 3D position from GPS.
+- $\mathbf{v}=[v_x,v_y,v_z]^T$: estimated linear velocity.
+- $\mathbf{q}$: attitude quaternion derived from IMU Euler angles.
+- $\boldsymbol{\omega}=[\omega_x,\omega_y,\omega_z]^T$: angular velocity from the gyroscope.
 
-#### 2. Sensor Feedback
+The controller enables GPS, the inertial unit, and the gyroscope. Position measurements are used to estimate linear velocity, while IMU and gyroscope measurements provide feedback for attitude stabilization.
 
-The Webots controller obtains:
+#### 2. B-Spline Trajectory Generation
 
-- **GPS:** current 3D position.
-- **IMU:** roll, pitch, and yaw angles.
-- **Gyroscope:** angular velocity about the three body axes.
-
-These measurements provide feedback for position tracking and attitude stabilization.
-
-#### 3. B-Spline Trajectory Generation
-
-The controller receives control points $P_j$ and spline degree $p$ from the server. The desired trajectory is represented as:
+The controller receives trajectory control points and the spline degree from the server through the Socket.IO `BSpline` event. The desired trajectory is represented mathematically as:
 
 $$
-\mathbf{p}_d(t)=\sum_{j=0}^{n}N_{j,p}(t)P_j
+\mathbf{p}_d(t)=\sum_{j=0}^{n}N_{j,p}(t)\mathbf{P}_j
 $$
 
 where:
 
 - $\mathbf{p}_d(t)$: desired 3D position at time $t$.
-- $P_j$: the $j$-th trajectory control point.
+- $\mathbf{P}_j$: the $j$-th B-spline control point.
 - $N_{j,p}(t)$: B-spline basis function.
-- $p$: spline degree.
+- $p$: spline degree received from the server.
 - $n$: final control-point index.
 
-The B-spline generates a smooth sequence of target positions. The controller advances through the generated waypoints when the UAV reaches the current target within a specified tolerance.
+The `BSpline()` function generates coordinate sequences for the trajectory:
 
-The implementation also supports receiving updated spline data through Socket.IO, regenerating the trajectory, and restarting waypoint tracking.
+$$
+\mathbf{P}_k^d=
+\begin{bmatrix}
+x_k^d\\
+y_k^d\\
+z_k^d
+\end{bmatrix}
+$$
 
-**Outcome:** A smooth mission trajectory and sensor feedback are provided to the flight controller.
+where $\mathbf{P}_k^d$ is the $k$-th generated waypoint, and $x_k^d$, $y_k^d$, and $z_k^d$ are its desired coordinates.
+
+The controller initializes its target using the first generated waypoint and advances through subsequent waypoints based on the UAV's proximity to the current target.
+
+#### 3. Dynamic Trajectory Updates
+
+The controller supports receiving new B-spline data while the simulation is running. When an update is received, it:
+
+1. Stores the incoming control points and spline degree.
+2. Generates a new trajectory.
+3. Creates new visual markers and removes the old control-point markers.
+4. Replaces the current trajectory coordinates.
+5. Resets waypoint traversal and assigns the first new waypoint as the target.
+
+This allows the server to update the UAV's planned path without restarting the controller.
+
+**Outcome:** The UAV obtains sensor feedback, follows a generated B-spline trajectory, and can accept updated trajectories during execution.
 
 ---
 
@@ -161,7 +176,7 @@ The implementation also supports receiving updated spline data through Socket.IO
 
 #### 1. Horizontal Position Control
 
-The horizontal position errors are:
+The controller compares the target coordinates with the current GPS position to calculate horizontal position errors:
 
 $$
 e_x=x_d-x,\qquad e_y=y_d-y
@@ -170,54 +185,61 @@ $$
 where:
 
 - $x_d,y_d$: desired horizontal coordinates.
-- $x,y$: current GPS coordinates.
+- $x,y$: current horizontal coordinates from GPS.
 - $e_x,e_y$: horizontal position errors.
 
-Horizontal velocity is estimated using successive position measurements:
+The horizontal velocities are estimated from successive GPS measurements:
 
 $$
-v_x\approx\frac{x-x_{\mathrm{prev}}}{\Delta t}
+v_x=\frac{x-x_{\mathrm{prev}}}{\Delta t}
 $$
 
 $$
-v_y\approx\frac{y-y_{\mathrm{prev}}}{\Delta t}
+v_y=\frac{y-y_{\mathrm{prev}}}{\Delta t}
 $$
 
 where:
 
 - $v_x,v_y$: estimated horizontal velocities.
-- $x_{\mathrm{prev}},y_{\mathrm{prev}}$: previous position measurements.
-- $\Delta t$: elapsed time between controller updates.
+- $x_{\mathrm{prev}},y_{\mathrm{prev}}$: previous GPS coordinates.
+- $\Delta t$: controller time step in seconds.
 
 The desired pitch and roll are calculated using proportional-derivative (PD) control:
 
 $$
-\theta_d=\left(
-K_{p,pos}e_x-K_{d,pos}v_x
+\theta_d=
+\left(
+K_{p,pos}e_x-K_{d,pos}v_x,\,-3,\,3
 \right)
 $$
-
-clipped between -3 and 3
 
 $$
 \phi_d=
 \left(
--K_{p,pos}e_y+K_{d,pos}v_y
+-K_{p,pos}e_y+K_{d,pos}v_y,\,-3,\,3
 \right)
 $$
-
-clipped between -3 and 3
 
 where:
 
 - $\theta_d$: desired pitch angle.
 - $\phi_d$: desired roll angle.
-- $K_{p,pos}$: position proportional gain.
-- $K_{d,pos}$: velocity damping gain.
+- $K_{p,pos}$: horizontal position proportional gain.
+- $K_{d,pos}$: horizontal velocity damping gain.
 
-The proportional term drives the UAV toward the target, while the derivative term damps excessive motion.
+The proportional term drives the UAV toward its target, while the derivative term reduces excessive motion.
 
-#### 2. Altitude Control
+The controller also supports keyboard-based manual attitude commands. When keyboard input is detected, the autonomous horizontal position-control branch is bypassed for that iteration, and the corresponding desired roll or pitch command can be adjusted.
+
+#### 2. Altitude Regulation
+
+Vertical velocity is estimated from successive altitude measurements:
+
+$$
+v_z=\frac{z-z_{\mathrm{prev}}}{\Delta t}
+$$
+
+where $v_z$ is the estimated vertical velocity, $z$ is the current altitude, and $z_{\mathrm{prev}}$ is the previous altitude measurement.
 
 The desired thrust is calculated as:
 
@@ -227,15 +249,15 @@ $$
 
 where:
 
-- $T_d$: desired thrust command before tilt compensation.
+- $T_d$: desired thrust before tilt compensation.
 - $T_h$: baseline hover-thrust command.
 - $e_z=z_d-z$: altitude error.
-- $z_d,z$: desired and current altitude.
-- $v_z$: estimated vertical velocity.
+- $z_d$: target altitude.
+- $z$: current altitude.
 - $K_{p,alt}$: altitude proportional gain.
-- $K_{d,alt}$: altitude damping gain.
+- $K_{d,alt}$: vertical velocity damping gain.
 
-Thrust is compensated for the current roll and pitch:
+The controller compensates for roll and pitch to maintain vertical lift:
 
 $$
 T_c=
@@ -246,19 +268,23 @@ $$
 where:
 
 - $T_c$: tilt-compensated thrust command.
-- $\phi,\theta$: current roll and pitch angles.
+- $\phi$: current roll angle.
+- $\theta$: current pitch angle.
+- $\max(0.5,\cos\phi\cos\theta)$: denominator safeguard that prevents excessive compensation when the cosine product becomes small.
 
-This compensation helps maintain vertical lift when the UAV tilts during horizontal movement.
+Although the code declares an altitude integral gain, `Ki_alt`, it does not use that gain in the thrust equation. Therefore, the implemented altitude controller is PD-like rather than a complete PID controller.
 
-**Outcome:** Position errors are converted into desired roll, pitch, and thrust commands.
+**Outcome:** Horizontal position errors generate desired roll and pitch commands, while altitude error and vertical motion determine the thrust command.
 
 ---
 
 ### Part 3 — Quaternion Attitude Control and Motor Mixing (3 Minutes)
 
-#### 1. Quaternion Attitude Representation
+#### 1. Attitude Error Calculation
 
-The controller converts the measured and desired Euler angles into quaternions. The orientation error is calculated as:
+The controller reads the roll, pitch, and yaw angles from the inertial unit and converts them from radians to degrees. The measured and desired orientations are then converted into quaternions.
+
+The attitude error is calculated as:
 
 $$
 q_e=q_d\otimes q^{-1}
@@ -270,39 +296,61 @@ where:
 - $q_d$: desired attitude quaternion.
 - $q$: current attitude quaternion.
 - $\otimes$: quaternion multiplication.
-- $q^{-1}$: inverse of the current quaternion.
+- $q^{-1}$: inverse of the current attitude quaternion.
 
-The controller normalizes the error quaternion and selects a consistent error representation before extracting its vector components.
+The desired yaw is initialized to the UAV's initial heading to help maintain its orientation during flight. The controller normalizes the quaternion error and reverses its sign when its scalar component is negative, providing a consistent error representation.
+
+The vector components of the normalized quaternion error are extracted as:
+
+$$
+\mathbf{e}_q=
+\begin{bmatrix}
+e_x^q\\
+e_y^q\\
+e_z^q
+\end{bmatrix}
+$$
+
+where $e_x^q$, $e_y^q$, and $e_z^q$ are the extracted quaternion vector components associated with attitude correction about the three body axes.
 
 #### 2. Attitude Feedback Control
 
-The commanded body torques are calculated as:
+The controller combines quaternion attitude error with gyroscope feedback to calculate the body torque commands:
 
 $$
-\tau_x=K_qe_x^q-K_\omega\omega_x
+\tau_x=
+\left(
+K_qe_x^q-K_\omega\omega_x,\,-15,\,15
+\right)
 $$
 
 $$
-\tau_y=K_qe_y^q-K_\omega\omega_y
+\tau_y=
+\left(
+K_qe_y^q-K_\omega\omega_y,\,-15,\,15
+\right)
 $$
 
 $$
-\tau_z=K_qe_z^q-K_\omega\omega_z
+\tau_z=
+\left(
+K_qe_z^q-K_\omega\omega_z,\,-10,\,10
+\right)
 $$
 
 where:
 
-- $\tau_x,\tau_y,\tau_z$: commanded roll, pitch, and yaw torques.
-- $e_x^q,e_y^q,e_z^q$: vector components of the attitude-error quaternion.
-- $\omega_x,\omega_y,\omega_z$: measured angular velocities.
-- $K_q$: attitude proportional gain.
+- $\tau_x,\tau_y,\tau_z$: commanded roll, pitch, and yaw torque contributions.
+- $K_q$: attitude-error proportional gain.
 - $K_\omega$: angular-velocity damping gain.
+- $\omega_x,\omega_y,\omega_z$: measured angular velocities from the gyroscope.
+- $e_x^q,e_y^q,e_z^q$: quaternion-error vector components.
 
-The attitude-error term corrects orientation, while the angular-velocity term reduces excessive rotational motion. The controller limits the torque commands to configured bounds.
+The proportional term corrects orientation errors, while the angular-velocity feedback damps rotational motion.
 
 #### 3. Motor Mixing
 
-The controller combines the thrust and torque commands to obtain four motor commands:
+The thrust and torque commands are combined to calculate four intermediate motor commands:
 
 $$
 u_{FL}=T_c-\tau_x+\tau_y-\tau_z
@@ -322,133 +370,107 @@ $$
 
 where:
 
-- $u_{FL}$: front-left motor command.
-- $u_{FR}$: front-right motor command.
-- $u_{RL}$: rear-left motor command.
-- $u_{RR}$: rear-right motor command.
+- $u_{FL}$: intermediate front-left motor command.
+- $u_{FR}$: intermediate front-right motor command.
+- $u_{RL}$: intermediate rear-left motor command.
+- $u_{RR}$: intermediate rear-right motor command.
 - $T_c$: tilt-compensated thrust.
-- $\tau_x,\tau_y,\tau_z$: commanded body torques.
+- $\tau_x,\tau_y,\tau_z$: commanded torque contributions.
 
-The resulting commands are mapped to the four Webots propeller devices, accounting for motor ordering and rotation direction. Differences in motor speeds generate the required roll, pitch, and yaw moments, while combined thrust controls vertical motion.
+Each intermediate command is clipped to the range $[-576,576]$.
 
-**Outcome:** The attitude controller converts orientation errors into motor-level control commands.
+The implementation then generates permutations of the four commands and selects permutation index $23$. The selected values are assigned to the Webots propeller devices with specific sign inversions:
+
+- Front-left motor: positive selected value.
+- Front-right motor: negative selected value.
+- Rear-left motor: negative selected value.
+- Rear-right motor: positive selected value.
+
+This permutation and sign mapping is part of the current implementation and should be validated against the Webots motor ordering and rotation directions before treating the mixer as a verified physical configuration.
+
+**Outcome:** Quaternion-based feedback converts orientation errors into torque contributions, which are combined with thrust and mapped to the four simulated propeller devices.
 
 ---
 
-### Part 4 — System Integration and Dynamic Leader Switching (3 Minutes)
+### Part 4 — System Integration, Telemetry, and Dynamic Leader Switching (3 Minutes)
 
-#### 1. Closed-Loop Navigation
+#### 1. Closed-Loop Flight-Control Integration
 
-The flight-control loop continuously measures the UAV state, calculates control errors, updates the desired attitude and thrust, and applies motor commands.
+The controller continuously repeats the following operations:
 
 $$
-\text{Sensors}
+\text{Sensor Feedback}
 \rightarrow
-\text{Position Control}
+\text{Position and Altitude Control}
 \rightarrow
 \text{Attitude Control}
 \rightarrow
-\text{Motors}
+\text{Motor Commands}
 $$
 
-The resulting motion is measured again, closing the feedback loop.
+The resulting UAV motion is measured again by GPS, the inertial unit, and the gyroscope. This feedback loop allows the controller to update its commands based on the difference between the measured state and the desired state.
 
-#### 2. Trajectory Tracking and Telemetry
+The controller also initializes the propeller motors in velocity-control mode and executes the control loop at the Webots simulation time step.
 
-The position-tracking error is calculated as:
+#### 2. Trajectory Length and Tracking Error
+
+The code calculates the length of the generated B-spline path by summing the Euclidean distances between consecutive sampled points:
 
 $$
-e_p=\|\mathbf{p}_d-\mathbf{p}\|_2
+L=\sum_{k=1}^{N-1}
+\left\|
+\mathbf{P}_{k+1}-\mathbf{P}_k
+\right\|_2
+$$
+
+where:
+
+- $L$: estimated length of the sampled trajectory.
+- $\mathbf{P}_k$: $k$-th sampled 3D trajectory point.
+- $N$: total number of sampled trajectory points.
+- $\|\cdot\|_2$: Euclidean norm.
+
+This value is initially transmitted to the server as the original path length.
+
+The controller also calculates the instantaneous position-tracking error:
+
+$$
+e_p=
+\sqrt{
+(x_d-x)^2+
+(y_d-y)^2+
+(z_d-z)^2
+}
 $$
 
 where:
 
 - $e_p$: 3D position-tracking error.
-- $\mathbf{p}_d$: desired position.
-- $\mathbf{p}$: current GPS position.
-- $\|\cdot\|_2$: Euclidean norm.
+- $x_d,y_d,z_d$: current target coordinates.
+- $x,y,z$: current GPS coordinates.
 
-The controller sends telemetry through Socket.IO, including the UAV's position, target coordinates, simulation time, and tracking error. It can also receive updated B-spline control points from the server.
+A smaller tracking error indicates that the UAV is closer to its current target position.
 
-These data support trajectory monitoring and evaluation of the flight controller.
+#### 3. Socket.IO Communication and Telemetry
 
-#### 3. Proposed Dynamic Leader-Switching Mechanism
+The controller communicates with the server through Socket.IO. Its main communication operations include:
 
-The planned extension evaluates the operational suitability of each UAV using normalized battery health, communication quality, and mission progress.
+- **Connection initialization:** Sends the initial GPS position and simulation time through the `sendData` event.
+- **B-spline reception:** Receives control points and spline degree through the `BSpline` event.
+- **Leader updates:** Receives the current leader identifier through the `leader_update` event.
+- **Telemetry transmission:** Sends simulation time, current position, target coordinates, tracking error, and additional status fields through the `telemetry` event.
+- **Path updates:** Recalculates the trajectory and resets waypoint traversal when new valid spline data arrives.
 
-The leadership score for UAV $i$ is:
-
-$$
-S_i=w_BB_i+w_CC_i+w_MM_i
-$$
-
-where:
-
-- $S_i$: leadership score of UAV $i$.
-- $B_i$: normalized battery-health score.
-- $C_i$: normalized communication-quality score.
-- $M_i$: normalized mission-progress score.
-- $w_B,w_C,w_M$: non-negative importance weights satisfying:
+The telemetry includes the following additional fields:
 
 $$
-w_B+w_C+w_M=1
+H=\frac{1}{1+e_p}
 $$
 
-Each health score lies between zero and one. A higher leadership score indicates greater suitability for the leader role.
+where $H$ is the code's tracking-error-derived `health_score`, and $e_p$ is the instantaneous position-tracking error. This quantity is a tracking-based indicator, not a complete assessment of the UAV's physical health.
 
-If UAV $L$ is the current leader and UAV $j$ is the candidate, switching is permitted only when the candidate's score exceeds the current leader's score by a specified margin:
+The code also reports `battery_pct = 100.0` and `link_quality = 1.0` as fixed values. These are placeholders rather than measurements from battery or communication-quality sensors. The `leader_id` field reports the latest leader identifier received from the server.
 
-$$
-S_j>S_L+\Delta_S
-$$
-
-The minimum dwell-time condition is:
-
-$$
-t-t_{\mathrm{switch}}>T_{\min}
-$$
-
-where:
-
-- $S_j$: candidate leader's score.
-- $S_L$: current leader's score.
-- $\Delta_S$: hysteresis margin required to trigger switching.
-- $t$: current simulation time.
-- $t_{\mathrm{switch}}$: time of the previous leader switch.
-- $T_{\min}$: minimum dwell time between consecutive switches.
-
-Both conditions must be satisfied before leadership changes. This prevents unnecessary role changes caused by small score fluctuations.
-
-#### 4. Leader-Follower Formation
-
-After a switch, the new leader follows the mission trajectory:
-
-$$
-\mathbf{p}_L^d(t)=\mathbf{p}_{\mathrm{mission}}(t)
-$$
-
-The follower maintains a desired offset relative to the leader:
-
-$$
-\mathbf{p}_F^d=
-\mathbf{p}_L+R(\psi_L)\mathbf{r}_{LF}
-$$
-
-where:
-
-- $\mathbf{p}_L^d(t)$: desired leader position.
-- $\mathbf{p}_{\mathrm{mission}}(t)$: predefined mission trajectory.
-- $\mathbf{p}_F^d$: desired follower position.
-- $\mathbf{p}_L$: current leader position.
-- $R(\psi_L)$: rotation matrix based on the leader's yaw angle.
-- $\psi_L$: leader yaw angle.
-- $\mathbf{r}_{LF}$: desired relative formation offset.
-
-The existing position and attitude control layers can then track the leader and follower targets.
-
-**Implementation status:** The supplied code implements single-UAV B-spline tracking, GPS/IMU/gyroscope feedback, position and attitude control, motor commands, and telemetry. Dynamic leader scoring, two-UAV role exchange, and formation control remain planned extensions. The existing telemetry fields `leader_id` and `obstacle_clearance` are placeholders.
-
-**Expected outcome:** Integrating these extensions will enable health-based leader selection, reduced unnecessary switching, and continuous cooperative navigation by two UAVs.
 ## Results
 
 - Stable UAV attitude control using a Python-based quaternion controller.
