@@ -22,6 +22,6 @@
 
 * [x] Extension of the single-UAV navigation system to two-UAV cooperative navigation.
 
-* [ ] Use of four predefined points as the mission path for evaluating the Dynamic Leader Switching approach.
+* [x] Use of four predefined points as the mission path for evaluating the Dynamic Leader Switching approach.
 
-* [ ] Integration of Dynamic Leader Switching to allow either UAV to assume the leader role and continue the mission along the planned trajectory.
+* [x] Integration of Dynamic Leader Switching to allow either UAV to assume the leader role and continue the mission along the planned trajectory.
