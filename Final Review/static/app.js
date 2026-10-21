@@ -336,3 +336,14 @@ function renderTelemetry(droneId, payload) {
         `;
     }).join('');
 }
+
+socket.on("leader_update", (data) => {
+    const leader = data.leader_id ?? "No leader";
+
+    const element = document.getElementById("leader-status");
+    if (element) {
+        element.textContent = `Current Leader: ${leader}`;
+    }
+
+    console.log("Leader changed:", data);
+});

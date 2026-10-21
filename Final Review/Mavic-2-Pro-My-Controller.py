@@ -34,6 +34,14 @@ def connect():
         "z": float(z),
         "t": float(robot.getTime())
     })
+    
+current_leader_id = None
+
+@socket.on("leader_update")
+def on_leader_update(data):
+    global current_leader_id
+
+    current_leader_id = data.get("leader_id")
 
 @socket.on("BSpline")
 def BSpline_Function(data):
@@ -160,7 +168,6 @@ tempx, tempy, tempz = BSpline(received_spline_data["CPts"], received_spline_data
 original_length = calculate_path_length(tempx, tempy, tempz)
 
 socket.emit("telemetry", {
-    "drone_id": "mavic_1",
     "t": float(robot.getTime() - start_time),
     "path_type": "Original",
     "path_length": original_length
@@ -301,25 +308,25 @@ while robot.step(timestep) != -1:
     
         # Send telemetry to the dashboard
         socket.emit("telemetry", {
-            "drone_id": "mavic_1",
             "t": float(current_time),
         
-            # Actual position
             "x": float(x),
             "y": float(y),
             "z": float(z),
         
-            # Current target on the planned spline
             "target_x": float(target_x),
             "target_y": float(target_y),
             "target_z": float(target_altitude),
         
-            # Tracking error
             "tracking_error": float(tracking_error),
         
-            # Supply real values when these features are implemented
-            "obstacle_clearance": None,
-            "leader_id": None
+            # Populate these from actual simulation or sensor values.
+            "battery_pct": 100.0,
+            "health_score": 1.0 / (1.0 + tracking_error),
+            "link_quality": 1.0,
+        
+            # Current fleet leader, received from the server.
+            "leader_id": current_leader_id
         })
     
         error_thingy = 0.35

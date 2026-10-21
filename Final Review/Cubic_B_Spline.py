@@ -59,6 +59,7 @@ def bSpline(p, CPts, U, u):
 def BSpline(CPts, p):
     tempx = []
     tempy = []
+    tempz = []
     U = myKnot(len(CPts),p)
     u = np.linspace(U[p],U[len(U)-p],100)
 
@@ -66,4 +67,5 @@ def BSpline(CPts, p):
         temp = (bSpline(p,CPts,U,u[i]))
         tempx.append(temp[0])
         tempy.append(temp[1])
-    return tempx, tempy
+        tempz.append(temp[2])
+    return tempx, tempy, tempz

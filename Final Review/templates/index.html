@@ -39,17 +39,18 @@
       <p class="muted">The server stores incoming samples continuously. Plot images are only generated when you press a plot button.</p>
       <div id="telemetryFeed" class="telemetry-feed"><div class="empty-state">No telemetry received yet.</div></div>
     </section>
+    <div id="leader-status">Current Leader: Electing...</div>
     <section class="panel">
       <div class="section-heading"><div><p class="eyebrow">ANALYSIS</p><h2>Generate plots</h2></div><span class="muted">PNG images saved in <code>static/generated_plots/</code></span></div>
       <div class="plot-buttons">
         <button class="button plot-button" data-plot="trajectory_3d">Actual 3D trajectory</button>
         <button class="button plot-button" data-plot="coordinates_time">X / Y / Z vs time</button>
-        <button class="button plot-button" data-plot="tracking_error">Position tracking error</button>
+        <!-- <button class="button plot-button" data-plot="tracking_error">Position tracking error</button> -->
         <button class="button plot-button" data-plot="planned_actual_3d">Planned vs actual path</button>
-        <button class="button plot-button" data-plot="obstacle_clearance">Obstacle clearance</button>
-        <button class="button plot-button" data-plot="path_length">Original vs replanned length</button>
+        <!-- <button class="button plot-button" data-plot="obstacle_clearance">Obstacle clearance</button> -->
+        <!-- <button class="button plot-button" data-plot="path_length">Original vs replanned length</button> -->
         <button class="button plot-button" data-plot="uav_trajectories">UAV 1 / UAV 2 trajectories</button>
-        <button class="button plot-button" data-plot="leader_identity">Leader identity vs time</button>
+        <!-- <button class="button plot-button" data-plot="leader_identity">Leader identity vs time</button> -->
       </div>
       <p id="plotMessage" class="inline-message" aria-live="polite"></p>
       <div id="plotGallery" class="plot-gallery"><div class="empty-state">Generated plot images will appear here.</div></div>

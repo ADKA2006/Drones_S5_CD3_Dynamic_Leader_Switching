@@ -3,6 +3,19 @@ from flask_socketio import SocketIO, emit
 from pathlib import Path
 import sqlite3, json, time, random, colorsys, math
 from datetime import datetime
+import threading
+
+# Dynamic leader-election state
+LEADER_ID = None
+LAST_LEADER_SWITCH = 0.0
+LEADER_LOCK = threading.RLock()
+
+LEADER_STALE_AFTER = 3.0       # Seconds without telemetry
+LEADER_SWITCH_COOLDOWN = 5.0   # Minimum time between normal switches
+LEADER_MIN_ADVANTAGE = 0.15    # Required normalized score advantage
+
+# Latest election metrics, kept in memory for fast decisions.
+DRONE_METRICS = {}
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "drone_dashboard.db"
@@ -54,6 +67,112 @@ def get_drone(drone_id):
     with db() as con:
         row = con.execute("SELECT * FROM drones WHERE drone_id=?", (drone_id,)).fetchone()
         return dict(row) if row else None
+
+def leader_score(drone_id):
+    """Calculate a normalized fitness score for leader election."""
+    metrics = DRONE_METRICS.get(drone_id, {})
+
+    battery = metrics.get("battery_pct", 100.0)
+    health = metrics.get("health_score", 1.0)
+    link = metrics.get("link_quality", 1.0)
+
+    try:
+        battery = max(0.0, min(100.0, float(battery))) / 100.0
+        health = max(0.0, min(1.0, float(health)))
+        link = max(0.0, min(1.0, float(link)))
+    except (TypeError, ValueError):
+        return 0.0
+
+    # Higher battery, health and link quality are better.
+    return 0.50 * battery + 0.30 * health + 0.20 * link
+
+
+def elect_leader(force=False):
+    """
+    Elect or replace the leader.
+
+    Disconnected/stale drones cannot lead. A normal switch requires
+    a meaningful score improvement and respects the cooldown.
+    """
+    global LEADER_ID, LAST_LEADER_SWITCH
+
+    now = time.time()
+
+    with LEADER_LOCK:
+        with db() as con:
+            rows = con.execute(
+                "SELECT drone_id, status, last_seen FROM drones"
+            ).fetchall()
+
+        # A drone is eligible only while its connection and telemetry
+        # are both fresh.
+        connected_ids = set(SID_TO_DRONE.values())
+        eligible = [
+            row["drone_id"]
+            for row in rows
+            if row["drone_id"] in connected_ids
+            and row["status"] == "connected"
+            and row["last_seen"] is not None
+            and now - row["last_seen"] <= LEADER_STALE_AFTER
+        ]
+
+        if not eligible:
+            if LEADER_ID is not None:
+                old_leader = LEADER_ID
+                LEADER_ID = None
+                LAST_LEADER_SWITCH = now
+
+                socket.emit("leader_update", {
+                    "leader_id": None,
+                    "previous_leader_id": old_leader,
+                    "reason": "no_eligible_drones",
+                    "scores": {}
+                })
+            return
+
+        scores = {did: leader_score(did) for did in eligible}
+
+        # Deterministic tie-break: lexicographically smallest drone ID.
+        best_id = min(eligible, key=lambda did: (-scores[did], did))
+
+        # No leader, or the current leader is no longer eligible.
+        if LEADER_ID not in eligible:
+            previous = LEADER_ID
+            LEADER_ID = best_id
+            LAST_LEADER_SWITCH = now
+            reason = "initial_election" if previous is None else "leader_unavailable"
+
+        else:
+            current_score = scores[LEADER_ID]
+            best_score = scores[best_id]
+
+            # Don't change leaders on tiny score fluctuations.
+            if best_id == LEADER_ID:
+                return
+
+            if not force and now - LAST_LEADER_SWITCH < LEADER_SWITCH_COOLDOWN:
+                return
+
+            if not force and best_score < current_score + LEADER_MIN_ADVANTAGE:
+                return
+
+            previous = LEADER_ID
+            LEADER_ID = best_id
+            LAST_LEADER_SWITCH = now
+            reason = "better_candidate"
+
+        print(
+            f"[LEADER] {previous} -> {LEADER_ID} | "
+            f"reason={reason} | scores={scores}"
+        )
+
+        socket.emit("leader_update", {
+            "leader_id": LEADER_ID,
+            "previous_leader_id": previous,
+            "reason": reason,
+            "scores": scores,
+            "timestamp": now
+        })
 
 
 def public_drone(row):
@@ -123,6 +242,7 @@ def register_drone(data):
     emit("drone_registered", {"drone_id": drone_id, "color": color,
                                "control_points": json.loads(row["control_points"]), "p": row["degree"]})
     broadcast_drones()
+    elect_leader()
     # If a saved path exists, resend it after registration/reconnection.
     points = json.loads(row["control_points"])
     if points:
@@ -136,7 +256,9 @@ def on_disconnect(reason=None):
         with db() as con:
             con.execute("UPDATE drones SET status='disconnected' WHERE drone_id=?", (drone_id,))
         print(f"Drone disconnected (record preserved): {drone_id}")
-        broadcast_drones()
+        broadcast_drones()        
+        DRONE_METRICS.pop(drone_id, None)
+        elect_leader()
 
 
 @socket.on("sendData")
@@ -174,10 +296,25 @@ def receive_telemetry(data):
     if get_drone(drone_id) is None:
         register_drone({"drone_id": drone_id})
     store_telemetry(drone_id, data)
+        # Cache the latest election metrics.
+    DRONE_METRICS[drone_id] = {
+        "battery_pct": data.get("battery_pct", 100.0),
+        "health_score": data.get("health_score", 1.0),
+        "link_quality": data.get("link_quality", 1.0),
+    }
+
+    # Re-evaluate the leader using the latest drone state.
+    elect_leader()
     with db() as con:
         con.execute("UPDATE drones SET status='connected', last_seen=? WHERE drone_id=?", (time.time(), drone_id))
     # Lightweight live status; detailed histories stay in SQLite until a plot is requested.
-    socket.emit("telemetry_update", {"drone_id": drone_id, "payload": data})
+    data["leader_id"] = LEADER_ID
+
+    socket.emit("telemetry_update", {
+        "drone_id": drone_id,
+        "payload": data,
+        "leader_id": LEADER_ID
+    })
 
 
 def store_telemetry(drone_id, payload):
@@ -241,6 +378,8 @@ def delete_drone(data):
             SID_TO_DRONE.pop(sid, None)
     emit("drone_deleted", {"drone_id": drone_id})
     broadcast_drones()
+    DRONE_METRICS.pop(drone_id, None)
+    elect_leader(force=True)
 
 
 PLOT_INFO = {
