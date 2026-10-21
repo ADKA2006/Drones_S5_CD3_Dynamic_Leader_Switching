@@ -99,11 +99,13 @@ After switching, the new leader continues following the mission trajectory, whil
 
 ## Methodology
 
-### 1. UAV State
+### Part 1 — UAV State Estimation and B-Spline Trajectory Generation (3 Minutes)
 
-For UAV $i$:
+#### 1. UAV State Representation
 
-$$
+The state of UAV \(i\) is represented as
+
+\[
 \mathbf{x}_i =
 \begin{bmatrix}
 \mathbf{p}_i\\
@@ -111,445 +113,338 @@ $$
 \mathbf{q}_i\\
 \boldsymbol{\omega}_i
 \end{bmatrix}
-$$
+\]
 
 where:
 
-- $\mathbf{p}_i$: position
-- $\mathbf{v}_i$: velocity
-- $\mathbf{q}_i$: attitude quaternion
-- $\boldsymbol{\omega}_i$: angular velocity
+- \(\mathbf{x}_i\): complete state of UAV \(i\).
+- \(\mathbf{p}_i=[x_i,y_i,z_i]^T\): 3D position.
+- \(\mathbf{v}_i\): linear velocity.
+- \(\mathbf{q}_i\): attitude quaternion representing orientation.
+- \(\boldsymbol{\omega}_i\): angular velocity.
 
----
+#### 2. Sensor Feedback
 
-### 2. Position Dynamics
+The Webots controller obtains:
 
-$$
-\dot{\mathbf{p}}_i = \mathbf{v}_i
-$$
+- **GPS:** current 3D position.
+- **IMU:** roll, pitch, and yaw angles.
+- **Gyroscope:** angular velocity about the three body axes.
 
-$$
-m_i\dot{\mathbf{v}}_i = \mathbf{F}_i^W + m_i\mathbf{g} + \mathbf{d}_i
-$$
+These measurements provide the feedback required for position tracking and attitude stabilization.
+
+#### 3. B-Spline Trajectory Generation
+
+The controller receives control points \(P_j\) and spline degree \(p\) from the server.
+
+\[
+\mathbf{p}_d(t)=\sum_{j=0}^{n}N_{j,p}(t)P_j
+\]
 
 where:
 
-- $\mathbf{p}_i$: position of UAV $i$
-- $\mathbf{v}_i$: velocity of UAV $i$
-- $m_i$: mass of UAV $i$
-- $\mathbf{F}_i^W$: total force acting on UAV $i$ in the world frame
-- $\mathbf{g}$: gravitational acceleration vector
-- $\mathbf{d}_i$: external disturbance acting on UAV $i$
+- \(\mathbf{p}_d(t)\): desired 3D position at time \(t\).
+- \(P_j\): the \(j\)-th trajectory control point.
+- \(N_{j,p}(t)\): B-spline basis function.
+- \(p\): spline degree.
+- \(n\): final control-point index.
 
---- 
+The B-spline generates a smooth trajectory represented by a sequence of target positions. The controller advances through the generated waypoints when the UAV reaches the current target within a specified tolerance.
 
-### 3. Position Controller
+The implementation also supports receiving updated spline data through Socket.IO, regenerating the trajectory, and restarting waypoint tracking.
 
-The desired tilt (interpreted as acceleration) is obtained using a PD controller:
-
-$$ 
-\mathbf{\theta}_d = K_p(\mathbf{p}_d-\mathbf{p}) + K_d(\mathbf{v}_d-\mathbf{v})
-$$
-
-$K_p$ — Proportional gain: Determines how strongly the UAV responds to the position error.
-Higher $K_p$ → UAV moves more aggressively toward the desired position.
-Too high → may cause overshoot or oscillation.
-
-$K_d$ — Derivative gain: Determines how strongly the UAV responds to the velocity error. It helps reduce overshoot and stabilize the motion.
-Higher $K_d$ → more damping/smoother response.
-Too high → response can become slow or sensitive to noise.
+**Outcome:** A smooth mission trajectory and sensor feedback are provided to the flight controller.
 
 ---
 
-### 4. Quaternion Attitude Control
+### Part 2 — Position Control and Altitude Regulation (3 Minutes)
 
-UAV orientation is represented using a unit quaternion:
+#### 1. Horizontal Position Control
 
-$$
-q=[q_0,q_1,q_2,q_3]
-$$
+The position error along the horizontal axes is
 
-The desired UAV orientation is represented by the desired quaternion $q_d$.\
-The quaternion tracking error between the desired and current orientations is calculated as:
+\[
+e_x=x_d-x,\qquad e_y=y_d-y
+\]
 
-$$
+where:
+
+- \(x_d,y_d\): desired horizontal coordinates.
+- \(x,y\): current GPS coordinates.
+- \(e_x,e_y\): horizontal position errors.
+
+Horizontal velocity is estimated from successive position measurements:
+
+\[
+v_x\approx\frac{x-x_{\mathrm{prev}}}{\Delta t},
+\qquad
+v_y\approx\frac{y-y_{\mathrm{prev}}}{\Delta t}
+\]
+
+where:
+
+- \(v_x,v_y\): estimated horizontal velocities.
+- \(x_{\mathrm{prev}},y_{\mathrm{prev}}\): previous position measurements.
+- \(\Delta t\): elapsed time between controller updates.
+
+The desired pitch and roll are calculated using proportional-derivative (PD) control:
+
+\[
+\theta_d=\operatorname{clip}
+\left(K_{p,pos}e_x-K_{d,pos}v_x,-3,3\right)
+\]
+
+\[
+\phi_d=\operatorname{clip}
+\left(-K_{p,pos}e_y+K_{d,pos}v_y,-3,3\right)
+\]
+
+where:
+
+- \(\theta_d\): desired pitch angle.
+- \(\phi_d\): desired roll angle.
+- \(K_{p,pos}\): position proportional gain.
+- \(K_{d,pos}\): velocity damping gain.
+- \(\operatorname{clip}\): restricts the command to the interval \([-3,3]\) degrees.
+
+The proportional term drives the UAV toward the target, while the derivative term damps excessive motion.
+
+#### 2. Altitude Control
+
+The desired thrust is calculated as
+
+\[
+T_d=T_h+K_{p,alt}e_z-K_{d,alt}v_z
+\]
+
+where:
+
+- \(T_d\): desired thrust command before tilt compensation.
+- \(T_h\): baseline hover-thrust command.
+- \(e_z=z_d-z\): altitude error.
+- \(z_d,z\): desired and current altitude.
+- \(v_z\): estimated vertical velocity.
+- \(K_{p,alt}\): altitude proportional gain.
+- \(K_{d,alt}\): altitude damping gain.
+
+The thrust is compensated for the current roll and pitch:
+
+\[
+T_c=
+\frac{T_d}
+{\max\left(0.5,\cos\phi\cos\theta\right)}
+\]
+
+where:
+
+- \(T_c\): tilt-compensated thrust command.
+- \(\phi,\theta\): current roll and pitch angles.
+
+This compensation helps maintain vertical lift when the UAV tilts during horizontal movement.
+
+**Outcome:** Position errors are converted into desired roll, pitch, and thrust commands.
+
+---
+
+### Part 3 — Quaternion Attitude Control and Motor Mixing (3 Minutes)
+
+#### 1. Quaternion Attitude Representation
+
+The controller converts the measured and desired Euler angles into quaternions.
+
+The orientation error is calculated as
+
+\[
 q_e=q_d\otimes q^{-1}
-$$
+\]
 
 where:
 
-- $q_e$: quaternion attitude error
-- $q_d$: desired attitude quaternion
+- \(q_e\): attitude-error quaternion.
+- \(q_d\): desired attitude quaternion.
+- \(q\): current attitude quaternion.
+- \(\otimes\): quaternion multiplication.
+- \(q^{-1}\): inverse of the current quaternion.
 
-And Desired Thrust $T$
+The controller normalizes the error quaternion and selects a consistent error representation before extracting its vector components.
 
-$$
-\boldsymbol{T} = T_{hover} + K_{p}e_{z} - K_{d}v_{z}
-$$
+#### 2. Attitude Feedback Control
 
-The attitude controller generates the desired torque:
+The commanded body torques are calculated as
 
-$$
-\boldsymbol{\tau} = K_q\mathbf{e}_q - K_\omega\boldsymbol{\omega} 
-$$
+\[
+\tau_x=K_qe_x^q-K_\omega\omega_x
+\]
 
-- $\boldsymbol{\tau}$: desired control torque
-- $K_q$: attitude-error proportional gain
-- $\mathbf{e}_q$: vector part of the quaternion attitude error
-- $K_\omega$: angular-velocity damping gain
-- $\boldsymbol{\omega}$: current angular velocity
+\[
+\tau_y=K_qe_y^q-K_\omega\omega_y
+\]
 
-where 
-- $K_q\mathbf{e}_q$ generates a corrective torque that drives the UAV toward the desired orientation and
-- $-K_\omega\boldsymbol{\omega}$ provides damping and reduces excessive rotational motion.
+\[
+\tau_z=K_qe_z^q-K_\omega\omega_z
+\]
 
----
+where:
 
-### 5. Motor Mixing
+- \(\tau_x,\tau_y,\tau_z\): commanded roll, pitch, and yaw torques.
+- \(e_x^q,e_y^q,e_z^q\): vector components of the attitude-error quaternion.
+- \(\omega_x,\omega_y,\omega_z\): measured angular velocities.
+- \(K_q\): attitude proportional gain.
+- \(K_\omega\): angular-velocity damping gain.
 
-The position and attitude controllers generate the required total thrust and body torques:
+The attitude-error term corrects orientation, while the angular-velocity term reduces excessive rotational motion. The controller limits the torque commands to configured bounds.
 
-$$
-\mathbf{u}=
+#### 3. Motor Mixing
+
+The controller combines the thrust and torque commands to obtain four motor commands:
+
+\[
 \begin{bmatrix}
-T\\
-\tau_x\\
-\tau_y\\
-\tau_z
+u_{FL}\\
+u_{FR}\\
+u_{RL}\\
+u_{RR}
 \end{bmatrix}
-$$
-
-where:
-
-- $T$: total thrust
-- $\tau_x$: roll torque
-- $\tau_y$: pitch torque
-- $\tau_z$: yaw torque
-
-These control inputs are converted into individual motor commands using a motor-mixing matrix:
-
-$$
-\begin{bmatrix} \omega_1\\ \omega_2\\ \omega_3\\ \omega_4 \end{bmatrix} = M 
+=
 \begin{bmatrix}
-T\\
-\tau_x\\
-\tau_y\\
-\tau_z
+T_c-\tau_x+\tau_y-\tau_z\\
+T_c+\tau_x+\tau_y+\tau_z\\
+T_c-\tau_x-\tau_y+\tau_z\\
+T_c+\tau_x-\tau_y-\tau_z
 \end{bmatrix}
-$$
+\]
 
 where:
 
-- $\omega_1,\omega_2,\omega_3,\omega_4$: commanded angular speeds of the four motors
-- $M$: motor-mixing matrix determined by the quadrotor configuration and motor arrangement
+- \(u_{FL}\): front-left motor command.
+- \(u_{FR}\): front-right motor command.
+- \(u_{RL}\): rear-left motor command.
+- \(u_{RR}\): rear-right motor command.
+- \(T_c\): tilt-compensated thrust.
+- \(\tau_x,\tau_y,\tau_z\): commanded body torques.
 
-The motor mixer distributes the required thrust and torques among the four motors. Differences in motor speeds generate the required **roll, pitch, and yaw torques**, while the combined motor thrust controls the UAV's vertical motion.
+The resulting commands are mapped to the four Webots propeller devices, accounting for motor ordering and rotation direction. Differences in motor speeds generate the required roll, pitch, and yaw moments, while combined thrust controls vertical motion.
 
----
-## To be Implemented 
----
-
-### 6. UAV Health Vector
-
-For each UAV $i$, the operational health vector is defined as:
-
-$$
-\mathbf{h}_i=
-[B_i,C_i,M_i]^T
-$$
-
-where:
-
-| Symbol | Parameter |
-|---|---|
-| $B_i$ | Battery health |
-| $C_i$ | Communication quality |
-| $M_i$ | Mission progress |
-
-These parameters are selected based on information available within the UAV simulation and control system, without requiring additional external environmental sensors.
-
-All parameters are normalized to the range:
-
-$$
-0\leq h_{ik}\leq1
-$$
-
-where $h_{ik}$ represents the normalized value of the $k$-th health parameter for UAV $i$. A higher value indicates better suitability for performing the leader role.
+**Outcome:** The attitude controller converts orientation errors into motor-level control commands.
 
 ---
 
-### 7. Battery Health
+### Part 4 — System Integration and Dynamic Leader Switching (3 Minutes)
 
-The battery level of UAV $i$ is normalized with respect to its maximum available energy:
+#### 1. Closed-Loop Navigation
 
-$$
-b_i=\frac{E_i}{E_{\max}}
-$$
+The flight-control loop continuously measures the UAV state, calculates control errors, updates the desired attitude and thrust, and applies motor commands.
 
-where:
+\[
+\text{Sensors}
+\rightarrow
+\text{Position Control}
+\rightarrow
+\text{Attitude Control}
+\rightarrow
+\text{Motors}
+\]
 
-- $E_i$: current battery energy of UAV $i$
-- $E_{\max}$: maximum battery energy
+The resulting motion is measured again, closing the feedback loop.
 
-To account for the minimum safe operating battery level, the battery health score is defined as:
+#### 2. Trajectory Tracking and Telemetry
 
-$$
-B_i=
-clip
-\left(
-\frac{b_i-B_{\min}}
-{1-B_{\min}},0,1
-\right)
-$$
+The position-tracking error is calculated as
 
-where:
-
-- $B_{\min}$: minimum safe normalized battery level
-- $B_i$: normalized battery health score
-- $clip(x,0,1)$: limits the value of $x$ to the range $[0,1]$
-
-A higher $B_i$ indicates better battery suitability for the leader role. When the battery level approaches the minimum safe threshold, $B_i$ approaches zero, reducing the UAV's likelihood of being selected as the leader.
-
----
-
-### 8. Communication Quality
-
-Communication quality is evaluated using the communication information already available between the two UAVs. The quality score can combine packet delivery ratio and communication delay:
-
-$$
-C_i=
-\alpha PDR_i+
-\beta(1-D_i)
-$$
+\[
+e_p=\|\mathbf{p}_d-\mathbf{p}\|_2
+\]
 
 where:
 
-- $C_i$: communication quality score of UAV $i$
-- $PDR_i$: packet delivery ratio
-- $D_i$: normalized communication delay
-- $\alpha$: weight assigned to packet delivery
-- $\beta$: weight assigned to communication delay
+- \(e_p\): 3D position-tracking error.
+- \(\mathbf{p}_d\): desired position.
+- \(\mathbf{p}\): current GPS position.
+- \(\|\cdot\|_2\): Euclidean norm.
 
-The weights satisfy:
+The controller sends telemetry through Socket.IO, including the UAV's position, target coordinates, simulation time, and tracking error. It can also receive updated B-spline control points from the server.
 
-$$
-\alpha+\beta=1
-$$
+These data support trajectory monitoring and evaluation of the flight controller.
 
-The packet delivery ratio is calculated as:
+#### 3. Proposed Dynamic Leader-Switching Mechanism
 
-$$
-PDR_i=
-\frac{N_{\text{received}}}
-{N_{\text{sent}}}
-$$
+The planned extension evaluates the operational suitability of each UAV using normalized battery health, communication quality, and mission progress.
 
-where:
+The leadership score for UAV \(i\) is
 
-- $N_{\text{received}}$: number of successfully received packets
-- $N_{\text{sent}}$: total number of transmitted packets
-
-The communication delay is normalized to the range $[0,1]$, where a lower delay produces a higher communication-quality contribution. Therefore, a higher $C_i$ indicates a more reliable communication link and greater suitability for the leader role.
-
----
-
-### 9. Mission Progress
-
-Mission progress represents how much of the assigned mission has been completed by UAV $i$. It can be calculated using the completed mission distance relative to the total mission distance:
-
-$$
-M_i =
-\frac{d_{\text{completed},i}}
-{d_{\text{mission}}}
-$$
+\[
+S_i=w_BB_i+w_CC_i+w_MM_i
+\]
 
 where:
 
-- $M_i$: normalized mission progress of UAV $i$
-- $d_{\text{completed},i}$: distance covered by UAV $i$ along the mission
-- $d_{\text{mission}}$: total mission distance
+- \(S_i\): leadership score of UAV \(i\).
+- \(B_i\): normalized battery-health score.
+- \(C_i\): normalized communication-quality score.
+- \(M_i\): normalized mission-progress score.
+- \(w_B,w_C,w_M\): non-negative importance weights satisfying
 
-The value of $M_i$ is limited to the range:
-
-$$
-0\leq M_i\leq1
-$$
-
-A higher $M_i$ indicates that the UAV has made greater progress along the mission and may be more suitable to continue as the leader. Since both UAVs operate within the same mission, this parameter can be used together with battery, GPS confidence, and communication quality to determine the overall leadership score.
-
----
-
-### Leadership Score
-
-The overall leadership score for UAV $i$ is calculated as a weighted combination of its battery health, communication quality, and mission progress:
-
-$$
-\boxed{
-S_i=
-w_BB_i+
-w_CC_i+
-w_MM_i
-}
-$$
-
-where:
-
-- $S_i$: overall leadership score of UAV $i$
-- $B_i$: battery health
-- $C_i$: communication quality
-- $M_i$: mission progress
-- $w_B$: weight assigned to battery health
-- $w_C$: weight assigned to communication quality
-- $w_M$: weight assigned to mission progress
-
-The weights satisfy:
-
-$$
+\[
 w_B+w_C+w_M=1
-$$
+\]
 
-and each parameter is normalized to:
+Each health score lies between zero and one. A higher leadership score indicates greater suitability for the leader role.
 
-$$
-0\leq B_i,C_i,M_i\leq1
-$$
+If UAV \(L\) is the current leader and UAV \(j\) is the candidate, switching is permitted only when the score advantage exceeds a threshold:
 
-Therefore, the resulting leadership score satisfies:
-
-$$
-0\leq S_i\leq1
-$$
-
-A higher $S_i$ indicates that the UAV is more suitable to perform the leader role. The UAV with the highest suitable leadership score is selected as the preferred leader, subject to the dynamic switching conditions defined in the following section.
-
----
-
-### Dynamic Leader Switching
-
-A simple instantaneous leader-selection rule is:
-
-$$
-L=\arg\max_i S_i
-$$
-
-where $L$ represents the selected leader and $S_i$ is the leadership score of UAV $i$.
-
-However, selecting the leader solely based on the instantaneous highest score may cause frequent switching when the scores fluctuate due to small changes in battery, communication quality, or mission progress.
-
-To prevent unnecessary switching, a **hysteresis condition** is introduced.
-
-If UAV $L$ is the current leader and UAV $j$ is the candidate leader, switching is allowed only when the candidate has a sufficiently higher leadership score:
-
-$$
-\boxed{
+\[
 S_j>S_L+\Delta_S
-}
-$$
+\]
+
+and the minimum time between switches has elapsed:
+
+\[
+t-t_{\mathrm{switch}}>T_{\min}
+\]
 
 where:
 
-- $S_j$: leadership score of the candidate UAV
-- $S_L$: leadership score of the current leader
-- $\Delta_S$: minimum score difference required to trigger a leader switch
+- \(S_j\): candidate leader's score.
+- \(S_L\): current leader's score.
+- \(\Delta_S\): hysteresis margin required to trigger switching.
+- \(t\): current simulation time.
+- \(t_{\mathrm{switch}}\): time of the previous leader switch.
+- \(T_{\min}\): minimum dwell time between consecutive switches.
 
-A **minimum dwell time** is also imposed so that the current leader remains active for a minimum period before another switch can occur:
+These conditions prevent unnecessary role changes caused by small score fluctuations.
 
-$$
-t-t_{\text{switch}}>T_{\min}
-$$
+#### 4. Leader-Follower Formation
 
-where:
+After a switch, the new leader follows the mission trajectory:
 
-- $t$: current simulation time
-- $t_{\text{switch}}$: time at which the previous leader switch occurred
-- $T_{\min}$: minimum required dwell time between consecutive leader switches
+\[
+\mathbf{p}_L^d(t)=\mathbf{p}_{\mathrm{mission}}(t)
+\]
 
-Therefore, a leadership transition occurs only when both conditions are satisfied:
+The follower maintains a desired offset relative to the leader:
 
-$$
-\boxed{
-S_j>S_L+\Delta_S
-\quad\land\quad
-t-t_{\text{switch}}>T_{\min}
-}
-$$
-
-When the conditions are satisfied, UAV $j$ becomes the new leader and the previous leader $L$ becomes the follower.
-
-This hysteresis-based switching mechanism prevents **leader chattering**, avoids unnecessary role changes, and provides more stable cooperative navigation.
-
----
-
-### Leader-Follower Navigation
-
-The active leader follows the predefined mission trajectory:
-
-$$
-\mathbf{p}_L^d(t) = \mathbf{p}_{mission}(t)
-$$
+\[
+\mathbf{p}_F^d=
+\mathbf{p}_L+R(\psi_L)\mathbf{r}_{LF}
+\]
 
 where:
 
-- $\mathbf{p}_L^d(t)$: desired position of the leader
-- $\mathbf{p}_{mission}(t)$: desired mission trajectory
+- \(\mathbf{p}_L^d(t)\): desired leader position.
+- \(\mathbf{p}_{\mathrm{mission}}(t)\): predefined mission trajectory.
+- \(\mathbf{p}_F^d\): desired follower position.
+- \(\mathbf{p}_L\): current leader position.
+- \(R(\psi_L)\): rotation matrix based on the leader's yaw angle.
+- \(\psi_L\): leader yaw angle.
+- \(\mathbf{r}_{LF}\): desired relative formation offset.
 
-The follower maintains a predefined relative position with respect to the leader:
+The existing position and attitude control layers can then track the leader and follower targets.
 
-$$
-\mathbf{p}_F^d = \mathbf{p}_L+ R(\psi_L)\mathbf{r}_{LF}
-$$
+**Implementation status:** The supplied code implements single-UAV B-spline tracking, GPS/IMU/gyroscope feedback, position and attitude control, motor commands, and telemetry. Dynamic leader scoring, two-UAV role exchange, and formation control remain planned extensions. The existing telemetry fields `leader_id` and `obstacle_clearance` are placeholders.
 
-where:
+**Outcome:** Integrating these extensions will enable health-based leader selection, reduced unnecessary switching, and continuous cooperative navigation by two UAVs.
 
-- $\mathbf{p}_F^d$: desired position of the follower
-- $\mathbf{p}_L$: current position of the leader
-- $R(\psi_L)$: rotation matrix based on the leader's yaw angle
-- $\psi_L$: leader yaw angle
-- $\mathbf{r}_{LF}$: desired leader-to-follower formation offset
-
-The follower's desired acceleration is calculated using the same PD position controller:
-
-$$
-\mathbf{a}_F^d = K_p(\mathbf{p}_F^d-\mathbf{p}_F) + K_d(\mathbf{v}_F^d-\mathbf{v}_F)
-$$
-
-where:
-
-- $\mathbf{p}_F$: current follower position
-- $\mathbf{v}_F^d$: desired follower velocity
-- $\mathbf{v}_F$: current follower velocity
-- $K_p$: proportional position gain
-- $K_d$: derivative velocity gain
-
-The resulting desired acceleration is passed to the existing low-level position and attitude control layers to generate the required motor commands.
-
----
-
-# Seamless Leader Transition
-
-When a leadership switch occurs, the roles of the two UAVs are exchanged without changing the overall mission trajectory.
-
-```text
-Before Switching
-
-UAV 1 → Leader → Mission Trajectory
-UAV 2 → Follower → Formation Offset
-
-              ↓
-       UAV 1 Score Decreases
-              ↓
-       UAV 2 Score Becomes Higher
-              ↓
-       Switching Conditions Satisfied
-              ↓
-
-After Switching
-
-UAV 1 → Follower → Formation Offset
-UAV 2 → Leader → Same Mission Trajectory
-```
-
-## Expected Results
+## Results
 
 - Stable UAV attitude control using a Python-based quaternion controller.
 - Adaptive leader selection based on battery, position accuracy, communication, and mission progress.
