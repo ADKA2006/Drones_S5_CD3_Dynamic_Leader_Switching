@@ -99,7 +99,7 @@ After switching, the new leader continues following the mission trajectory, whil
 
 ## Methodology
 
-### Part 1 — UAV State Estimation and B-Spline Trajectory Generation (3 Minutes)
+### Part 1 — UAV State Estimation and B-Spline Trajectory Generation
 
 #### 1. UAV State Monitoring
 
@@ -172,7 +172,7 @@ This allows the server to update the UAV's planned path without restarting the c
 
 ---
 
-### Part 2 — Position Control and Altitude Regulation (3 Minutes)
+### Part 2 — Position Control and Altitude Regulation
 
 #### 1. Horizontal Position Control
 
@@ -278,7 +278,7 @@ Although the code declares an altitude integral gain, `Ki_alt`, it does not use 
 
 ---
 
-### Part 3 — Quaternion Attitude Control and Motor Mixing (3 Minutes)
+### Part 3 — Quaternion Attitude Control and Motor Mixing
 
 #### 1. Attitude Error Calculation
 
@@ -392,7 +392,7 @@ This permutation and sign mapping is part of the current implementation and shou
 
 ---
 
-### Part 4 — System Integration, Telemetry, and Dynamic Leader Switching (3 Minutes)
+### Part 4 — System Integration, Telemetry, and Dynamic Leader Switching
 
 #### 1. Closed-Loop Flight-Control Integration
 
