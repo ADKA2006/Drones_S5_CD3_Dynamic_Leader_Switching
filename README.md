@@ -550,3 +550,7 @@ The Webots simulation demonstrates the operation of the implemented UAV flight-c
 ## Conclusion
 
 The proposed system enables two UAVs to dynamically switch leadership based on their operating conditions. By combining adaptive leadership scoring, hysteresis, and minimum dwell time, the system is expected to provide stable leader selection and continuous cooperative navigation. The approach will be validated through Webots simulation under different UAV operating conditions.
+
+
+## Referencecs
+Li, F., Ding, Y., Zhou, M., Hao, K., & Chen, L. (2017). An Affection-Based Dynamic Leader Selection Model for Formation Control in Multirobot Systems. IEEE Transactions on Systems, Man, and Cybernetics: Systems, 47(7), 1217–1228. DOI: 10.1109/TSMC.2016.2564931.
