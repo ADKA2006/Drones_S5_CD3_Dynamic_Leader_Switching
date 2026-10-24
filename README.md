@@ -272,7 +272,7 @@ where:
 - $\theta$: current pitch angle.
 - $\max(0.5,\cos\phi\cos\theta)$: denominator safeguard that prevents excessive compensation when the cosine product becomes small.
 
-Although the code declares an altitude integral gain, `Ki_alt`, it does not use that gain in the thrust equation. Therefore, the implemented altitude controller is PD-like rather than a complete PID controller.
+Although the code declares an altitude integral gain, $$Ki_{alt}$$, it does not use that gain in the thrust equation. Therefore, the implemented altitude controller is PD-like rather than a complete PID controller.
 
 **Outcome:** Horizontal position errors generate desired roll and pitch commands, while altitude error and vertical motion determine the thrust command.
 
