@@ -276,6 +276,13 @@ Although the code declares an altitude integral gain, `Ki_alt`, it does not use 
 
 **Outcome:** Horizontal position errors generate desired roll and pitch commands, while altitude error and vertical motion determine the thrust command.
 
+<div align="center">
+  <figure>
+    <img src="Misc/Images/Thrust-Compensate.jpeg" alt="ThrustCompensate" width="500"> <br>
+    <figcaption> Figure 2: UAV Pitch, Roll, and Tilt-Compensated Thrust </figcaption>
+  </figure>
+</div>
+
 ---
 
 ### Part 3 — Quaternion Attitude Control and Motor Mixing
@@ -473,11 +480,72 @@ The code also reports `battery_pct = 100.0` and `link_quality = 1.0` as fixed va
 
 ## Results
 
+### 1. B-Spline Trajectory and UAV Position Tracking
+
+The UAV flight controller was evaluated in the Webots simulation environment to observe its trajectory-following behavior and position-control performance. The simulation results illustrate the UAV's movement in three-dimensional space and its position response over time.
+
+#### 1.1 Three-Dimensional UAV Trajectory
+
+The following figure compares the saved B-spline control polygon with the actual UAV trajectories obtained from multiple simulation sessions.
+
+<div align="center">
+  <figure>
+    <img
+      src="Misc/Images/planned_actual_3d.png"
+      alt="3D B-spline control polygon and actual UAV trajectories"
+      width="750"
+    >
+    <figcaption>
+      <b>Fig. 1:</b> Three-dimensional visualization of the saved
+      B-spline control polygon and actual UAV trajectories recorded
+      across multiple Webots simulation sessions.
+    </figcaption>
+  </figure>
+</div>
+
+**Observation:**
+
+- The blue dashed line represents the saved control polygon connecting the B-spline control points, not the sampled B-spline curve itself.
+- The colored continuous curves represent UAV trajectories recorded during different simulation sessions.
+- The trajectories show differences in horizontal motion, altitude progression, and transient oscillations.
+- The results demonstrate the execution of three-dimensional UAV motion under the implemented flight controller.
+
+#### 1.2 Position Coordinates Versus Time
+
+The following figure presents the UAV's X, Y, and Z position coordinates over time for two simulation sessions.
+
+<div align="center">
+  <figure>
+    <img
+      src="Misc/Images/coordinates_time.png"
+      alt="UAV X Y Z position coordinates versus simulation time"
+      width="850"
+    >
+    <figcaption>
+      <b>Fig. 2:</b> Time-domain response of the UAV's X, Y, and Z
+      position coordinates for two Webots simulation sessions,
+      illustrating horizontal position convergence, transient
+      oscillations, and altitude stabilization.
+    </figcaption>
+  </figure>
+</div>
+
+**Observation:**
+
+- **X-axis response:** Both sessions approach a similar final X position after an initial transient period, with small residual oscillations.
+- **Y-axis response:** The trajectories exhibit initial deviations and oscillatory motion before approaching a similar final Y position.
+- **Z-axis response:** The two sessions stabilize at approximately 2 m and 3 m, respectively, indicating different final altitude levels.
+- The observed oscillations reflect the transient behavior of the position and attitude control system.
+
+### 2. Result Summary
+
+The Webots simulation demonstrates the operation of the implemented UAV flight-control framework, including:
 - Stable UAV attitude control using a Python-based quaternion controller.
 - Adaptive leader selection based on battery, position accuracy, communication, and mission progress.
 - Reduced unnecessary leader switching using hysteresis and minimum dwell time.
 - Continuous dual-UAV formation during leader transitions.
 - Improved mission reliability compared with a fixed-leader system.
+
 
 ## Conclusion
 
