@@ -493,10 +493,10 @@ The following figure compares the saved B-spline control polygon with the actual
     <img
       src="Misc/Images/planned_actual_3d.png"
       alt="3D B-spline control polygon and actual UAV trajectories"
-      width="750"
+      width="850"
     >
     <figcaption>
-      <b>Fig. 1:</b> Three-dimensional visualization of the saved
+      <b>Fig. 2:</b> Three-dimensional visualiaation of the saved
       B-spline control polygon and actual UAV trajectories recorded
       across multiple Webots simulation sessions.
     </figcaption>
@@ -522,7 +522,7 @@ The following figure presents the UAV's X, Y, and Z position coordinates over ti
       width="850"
     >
     <figcaption>
-      <b>Fig. 2:</b> Time-domain response of the UAV's X, Y, and Z
+      <b>Fig. 3:</b> Time-domain response of the UAV's X, Y, and Z
       position coordinates for two Webots simulation sessions,
       illustrating horizontal position convergence, transient
       oscillations, and altitude stabilization.
